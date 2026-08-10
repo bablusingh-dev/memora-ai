@@ -1,0 +1,22 @@
+services:
+  # ParadeDB: PostgreSQL with built-in pg_search extension for BM25 vectorless RAG search
+  paradedb:
+    image: paradedb/paradedb:latest
+    container_name: memora_paradedb
+    restart: unless-stopped
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: memora_db
+    volumes:
+      - paradedb_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d memora_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  paradedb_data:
