@@ -6,8 +6,12 @@ import {
   deleteNotebook,
   searchNotebookRAG,
 } from '../controllers/notebook.controller.js';
+import { requireAuthMiddleware } from '../middlewares/auth.middleware.js';
 
 const router = Router();
+
+// Apply Clerk requireAuthMiddleware to all notebook endpoints
+router.use(requireAuthMiddleware);
 
 router.get('/', getNotebooks);
 router.post('/', createNotebook);

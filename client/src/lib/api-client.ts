@@ -11,10 +11,20 @@ export const apiClient: AxiosInstance = axios.create({
   timeout: 30000,
 });
 
+/**
+ * Set or clear Bearer authentication token for outgoing requests
+ */
+export function setAuthToken(token: string | null) {
+  if (token) {
+    apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+  } else {
+    delete apiClient.defaults.headers.common['Authorization'];
+  }
+}
+
 // Response Interceptor: Automatically unwraps standard ApiResponse data envelope
 apiClient.interceptors.response.use(
   (response: AxiosResponse<ApiResponse>) => {
-    // If backend returned our standard JSON envelope with success: true, return response.data.data
     if (response.data && response.data.success !== undefined) {
       return response.data.data;
     }

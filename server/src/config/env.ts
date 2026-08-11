@@ -9,6 +9,9 @@ const envSchema = z.object({
   DATABASE_URL: z.string().default('postgres://postgres:postgrespassword@localhost:5432/memora_db'),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
+  CLERK_PUBLISHABLE_KEY: z.string().optional().default('pk_test_placeholder'),
+  CLERK_SECRET_KEY: z.string().optional().default('sk_test_placeholder'),
+  CLERK_WEBHOOK_SECRET: z.string().optional().default('whsec_placeholder'),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

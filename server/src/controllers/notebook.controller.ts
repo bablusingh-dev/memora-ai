@@ -1,10 +1,11 @@
-import { Request, Response } from 'express';
+import { Response } from 'express';
 import { NotebookService } from '../services/notebook.service.js';
 import { RagService } from '../services/rag.service.js';
 import { ApiResponse } from '../utils/api-response.js';
 import { asyncHandler } from '../utils/async-handler.js';
 import { z } from 'zod';
 import { BadRequestError } from '../utils/api-error.js';
+import { AuthenticatedRequest } from '../middlewares/auth.middleware.js';
 
 const notebookService = new NotebookService();
 const ragService = new RagService();
@@ -19,8 +20,9 @@ const searchSchema = z.object({
   topK: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 5)),
 });
 
-export const getNotebooks = asyncHandler(async (req: Request, res: Response) => {
-  const notebooks = await notebookService.getAllNotebooks();
+export const getNotebooks = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.userId!;
+  const notebooks = await notebookService.getAllNotebooks(userId);
   return ApiResponse.success({
     res,
     data: notebooks,
@@ -28,9 +30,10 @@ export const getNotebooks = asyncHandler(async (req: Request, res: Response) => 
   });
 });
 
-export const getNotebookById = asyncHandler(async (req: Request, res: Response) => {
+export const getNotebookById = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const id = req.params.id as string;
-  const notebook = await notebookService.getNotebookById(id);
+  const userId = req.userId!;
+  const notebook = await notebookService.getNotebookById(id, userId);
   return ApiResponse.success({
     res,
     data: notebook,
@@ -38,13 +41,18 @@ export const getNotebookById = asyncHandler(async (req: Request, res: Response) 
   });
 });
 
-export const createNotebook = asyncHandler(async (req: Request, res: Response) => {
+export const createNotebook = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const userId = req.userId!;
   const parseResult = createNotebookSchema.safeParse(req.body);
   if (!parseResult.success) {
     throw new BadRequestError('Invalid notebook payload', parseResult.error.format());
   }
 
-  const newNotebook = await notebookService.createNotebook(parseResult.data);
+  const newNotebook = await notebookService.createNotebook({
+    ...parseResult.data,
+    userId,
+  });
+
   return ApiResponse.created({
     res,
     data: newNotebook,
@@ -52,17 +60,23 @@ export const createNotebook = asyncHandler(async (req: Request, res: Response) =
   });
 });
 
-export const deleteNotebook = asyncHandler(async (req: Request, res: Response) => {
+export const deleteNotebook = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const id = req.params.id as string;
-  await notebookService.deleteNotebook(id);
+  const userId = req.userId!;
+  await notebookService.deleteNotebook(id, userId);
   return ApiResponse.success({
     res,
     message: `Notebook '${id}' deleted successfully`,
   });
 });
 
-export const searchNotebookRAG = asyncHandler(async (req: Request, res: Response) => {
+export const searchNotebookRAG = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const id = req.params.id as string;
+  const userId = req.userId!;
+  
+  // Verify user owns notebook first
+  await notebookService.getNotebookById(id, userId);
+
   const parseResult = searchSchema.safeParse(req.query);
   if (!parseResult.success) {
     throw new BadRequestError('Invalid search query parameters', parseResult.error.format());

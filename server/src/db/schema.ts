@@ -1,7 +1,20 @@
 import { pgTable, uuid, text, timestamp, integer, jsonb } from 'drizzle-orm/pg-core';
 
+export const users = pgTable('users', {
+  id: text('id').primaryKey(), // Clerk User ID e.g. user_2P3...
+  email: text('email').notNull(),
+  firstName: text('first_name'),
+  lastName: text('last_name'),
+  imageUrl: text('image_url'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const notebooks = pgTable('notebooks', {
   id: uuid('id').defaultRandom().primaryKey(),
+  userId: text('user_id')
+    .references(() => users.id, { onDelete: 'cascade' })
+    .notNull(),
   title: text('title').notNull(),
   description: text('description'),
   createdAt: timestamp('created_at').defaultNow().notNull(),

@@ -1,13 +1,29 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { SourcesPanel } from '@/components/notebook/SourcesPanel';
 import { ChatStudioPanel } from '@/components/notebook/ChatStudioPanel';
 import { AudioOverviewPanel } from '@/components/notebook/AudioOverviewPanel';
-import { Brain, Settings, HelpCircle, Layers } from 'lucide-react';
+import { Brain, Settings, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { SignInButton, UserButton, useAuth } from '@clerk/nextjs';
+import { setAuthToken } from '@/lib/api-client';
 
 export default function NotebookDashboardPage() {
+  const { getToken, isSignedIn } = useAuth();
+
+  useEffect(() => {
+    async function syncToken() {
+      if (isSignedIn) {
+        const token = await getToken();
+        setAuthToken(token);
+      } else {
+        setAuthToken(null);
+      }
+    }
+    syncToken();
+  }, [getToken, isSignedIn]);
+
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       {/* Top Navbar */}
@@ -30,9 +46,17 @@ export default function NotebookDashboardPage() {
           <Button variant="ghost" size="icon" className="h-8 w-8">
             <Settings className="w-4 h-4" />
           </Button>
-          <div className="w-8 h-8 rounded-full bg-primary/20 border border-primary/40 flex items-center font-bold text-xs justify-center text-primary">
-            AI
-          </div>
+
+          {/* Clerk Auth Integration UI */}
+          {isSignedIn ? (
+            <UserButton />
+          ) : (
+            <SignInButton mode="modal">
+              <Button size="sm" className="bg-primary text-primary-foreground text-xs">
+                Sign In
+              </Button>
+            </SignInButton>
+          )}
         </div>
       </header>
 

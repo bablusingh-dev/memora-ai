@@ -9,12 +9,12 @@ export class NotebookService {
     this.repo = new NotebookRepository();
   }
 
-  async getAllNotebooks() {
-    return await this.repo.findAll();
+  async getAllNotebooks(userId: string) {
+    return await this.repo.findAllByUserId(userId);
   }
 
-  async getNotebookById(id: string) {
-    const notebook = await this.repo.findById(id);
+  async getNotebookById(id: string, userId: string) {
+    const notebook = await this.repo.findById(id, userId);
     if (!notebook) {
       throw new NotFoundError(`Notebook with ID '${id}' not found`);
     }
@@ -29,12 +29,15 @@ export class NotebookService {
     if (!data.title || data.title.trim() === '') {
       throw new BadRequestError('Notebook title is required');
     }
-    logger.info({ title: data.title }, 'Creating new notebook');
+    if (!data.userId) {
+      throw new BadRequestError('User ID is required');
+    }
+    logger.info({ title: data.title, userId: data.userId }, 'Creating new notebook');
     return await this.repo.create(data);
   }
 
-  async deleteNotebook(id: string) {
-    const deleted = await this.repo.delete(id);
+  async deleteNotebook(id: string, userId: string) {
+    const deleted = await this.repo.delete(id, userId);
     if (!deleted) {
       throw new NotFoundError(`Notebook with ID '${id}' not found`);
     }

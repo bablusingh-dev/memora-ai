@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
+import { clerkMiddleware } from '@clerk/express';
 import { env } from './config/env.js';
 import { logger } from './utils/logger.js';
 import { requestIdMiddleware } from './middlewares/request-id.middleware.js';
@@ -28,6 +29,14 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Request Correlation ID Middleware
 app.use(requestIdMiddleware);
+
+// Clerk Authentication Middleware
+app.use(
+  clerkMiddleware({
+    publishableKey: env.CLERK_PUBLISHABLE_KEY,
+    secretKey: env.CLERK_SECRET_KEY,
+  })
+);
 
 // Pino HTTP Request Logging
 app.use(
