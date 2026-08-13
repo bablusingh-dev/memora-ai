@@ -7,18 +7,28 @@ export const metadata: Metadata = {
   description: 'Production-grade Notebook LLM alternative with Vectorless ParadeDB BM25 Search & Clerk Auth',
 };
 
+const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const isValidClerkKey =
+  publishableKey &&
+  publishableKey.startsWith('pk_') &&
+  !publishableKey.includes('placeholder');
+
 export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  return (
-    <ClerkProvider>
-      <html lang="en" className="dark">
-        <body className="antialiased bg-background text-foreground min-h-screen">
-          {children}
-        </body>
-      </html>
-    </ClerkProvider>
+  const content = (
+    <html lang="en" className="dark" suppressHydrationWarning>
+      <body className="antialiased bg-background text-foreground min-h-screen" suppressHydrationWarning>
+        {children}
+      </body>
+    </html>
   );
+
+  if (isValidClerkKey) {
+    return <ClerkProvider publishableKey={publishableKey}>{content}</ClerkProvider>;
+  }
+
+  return content;
 }

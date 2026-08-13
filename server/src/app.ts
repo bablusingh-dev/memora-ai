@@ -12,6 +12,11 @@ import { NotFoundError } from './utils/api-error.js';
 
 export const app = express();
 
+const isClerkConfigured =
+  env.CLERK_SECRET_KEY &&
+  env.CLERK_SECRET_KEY.startsWith('sk_') &&
+  !env.CLERK_SECRET_KEY.includes('placeholder');
+
 // Security Headers
 app.use(helmet());
 
@@ -30,13 +35,15 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Request Correlation ID Middleware
 app.use(requestIdMiddleware);
 
-// Clerk Authentication Middleware
-app.use(
-  clerkMiddleware({
-    publishableKey: env.CLERK_PUBLISHABLE_KEY,
-    secretKey: env.CLERK_SECRET_KEY,
-  })
-);
+// Clerk Authentication Middleware (only registered when valid secret key exists)
+if (isClerkConfigured) {
+  app.use(
+    clerkMiddleware({
+      publishableKey: env.CLERK_PUBLISHABLE_KEY,
+      secretKey: env.CLERK_SECRET_KEY,
+    })
+  );
+}
 
 // Pino HTTP Request Logging
 app.use(

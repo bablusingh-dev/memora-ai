@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { SourcesPanel } from '@/components/notebook/SourcesPanel';
 import { ChatStudioPanel } from '@/components/notebook/ChatStudioPanel';
 import { AudioOverviewPanel } from '@/components/notebook/AudioOverviewPanel';
@@ -12,22 +12,46 @@ import { SignInButton, UserButton, useAuth } from '@clerk/nextjs';
 import { setAuthToken } from '@/lib/api-client';
 import { useNotebookStore } from '@/store/useNotebookStore';
 
+const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
+const isValidClerkKey =
+  publishableKey &&
+  publishableKey.startsWith('pk_') &&
+  !publishableKey.includes('placeholder');
+
 export default function NotebookDashboardPage() {
-  const { getToken, isSignedIn } = useAuth();
-  const { fetchNotebooks } = useNotebookStore();
+  let getToken: any = () => Promise.resolve(null);
+  let isSignedIn = true; // Default to true in dev mode so dashboard works out-of-the-box
+
+  try {
+    if (isValidClerkKey) {
+      const auth = useAuth();
+      getToken = auth.getToken;
+      isSignedIn = auth.isSignedIn ?? false;
+    }
+  } catch (e) {
+    isSignedIn = true;
+  }
+
+  const hasFetchedRef = useRef(false);
 
   useEffect(() => {
     async function syncTokenAndFetch() {
-      if (isSignedIn) {
+      if (isValidClerkKey && isSignedIn) {
         const token = await getToken();
         setAuthToken(token);
-        await fetchNotebooks();
       } else {
         setAuthToken(null);
       }
+
+      // Prevent infinite re-fetching loop
+      if (!hasFetchedRef.current) {
+        hasFetchedRef.current = true;
+        await useNotebookStore.getState().fetchNotebooks();
+      }
     }
+
     syncTokenAndFetch();
-  }, [getToken, isSignedIn, fetchNotebooks]);
+  }, [isSignedIn]);
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -45,12 +69,8 @@ export default function NotebookDashboardPage() {
             </h1>
           </div>
 
-          {isSignedIn && (
-            <>
-              <div className="h-4 w-px bg-border hidden sm:block" />
-              <NotebookSwitcher />
-            </>
-          )}
+          <div className="h-4 w-px bg-border hidden sm:block" />
+          <NotebookSwitcher />
         </div>
 
         <div className="flex items-center space-x-2">
@@ -62,14 +82,25 @@ export default function NotebookDashboardPage() {
           </Button>
 
           {/* Clerk Auth Integration UI */}
-          {isSignedIn ? (
-            <UserButton />
+          {isValidClerkKey ? (
+            isSignedIn ? (
+              <UserButton />
+            ) : (
+              <SignInButton mode="modal">
+                <Button size="sm" className="bg-primary text-primary-foreground text-xs">
+                  Sign In
+                </Button>
+              </SignInButton>
+            )
           ) : (
-            <SignInButton mode="modal">
-              <Button size="sm" className="bg-primary text-primary-foreground text-xs">
-                Sign In
-              </Button>
-            </SignInButton>
+            <div className="flex items-center space-x-2">
+              <span className="text-[10px] bg-secondary border border-border px-2 py-0.5 rounded text-muted-foreground">
+                Dev Mode
+              </span>
+              <div className="w-7 h-7 rounded-full bg-primary/20 border border-primary/40 flex items-center font-bold text-xs justify-center text-primary">
+                AI
+              </div>
+            </div>
           )}
         </div>
       </header>
