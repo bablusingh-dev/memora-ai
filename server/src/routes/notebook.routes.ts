@@ -3,6 +3,7 @@ import {
   getNotebooks,
   getNotebookById,
   createNotebook,
+  updateNotebook,
   deleteNotebook,
   searchNotebookRAG,
 } from '../controllers/notebook.controller.js';
@@ -16,6 +17,7 @@ router.use(requireAuthMiddleware);
 router.get('/', getNotebooks);
 router.post('/', createNotebook);
 router.get('/:id', getNotebookById);
+router.patch('/:id', updateNotebook);
 router.delete('/:id', deleteNotebook);
 router.get('/:id/search', searchNotebookRAG);
 

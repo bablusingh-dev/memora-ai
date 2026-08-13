@@ -15,6 +15,11 @@ const createNotebookSchema = z.object({
   description: z.string().optional(),
 });
 
+const updateNotebookSchema = z.object({
+  title: z.string().min(1, 'Title is required').optional(),
+  description: z.string().optional(),
+});
+
 const searchSchema = z.object({
   query: z.string().min(1, 'Search query is required'),
   topK: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 5)),
@@ -57,6 +62,23 @@ export const createNotebook = asyncHandler(async (req: AuthenticatedRequest, res
     res,
     data: newNotebook,
     message: 'Notebook created successfully',
+  });
+});
+
+export const updateNotebook = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+  const id = req.params.id as string;
+  const userId = req.userId!;
+  const parseResult = updateNotebookSchema.safeParse(req.body);
+  if (!parseResult.success) {
+    throw new BadRequestError('Invalid update payload', parseResult.error.format());
+  }
+
+  const updated = await notebookService.updateNotebook(id, userId, parseResult.data);
+
+  return ApiResponse.success({
+    res,
+    data: updated,
+    message: 'Notebook updated successfully',
   });
 });
 

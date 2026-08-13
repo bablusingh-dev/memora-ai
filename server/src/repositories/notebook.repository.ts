@@ -30,6 +30,18 @@ export class NotebookRepository {
     return result[0];
   }
 
+  async update(id: string, userId: string, data: Partial<NewNotebook>): Promise<Notebook | null> {
+    const result = await db
+      .update(notebooks)
+      .set({
+        ...data,
+        updatedAt: new Date(),
+      })
+      .where(and(eq(notebooks.id, id), eq(notebooks.userId, userId)))
+      .returning();
+    return result[0] || null;
+  }
+
   async delete(id: string, userId: string): Promise<boolean> {
     const result = await db
       .delete(notebooks)

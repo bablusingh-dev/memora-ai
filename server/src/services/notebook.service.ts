@@ -36,6 +36,14 @@ export class NotebookService {
     return await this.repo.create(data);
   }
 
+  async updateNotebook(id: string, userId: string, data: Partial<NewNotebook>) {
+    const updated = await this.repo.update(id, userId, data);
+    if (!updated) {
+      throw new NotFoundError(`Notebook with ID '${id}' not found`);
+    }
+    return updated;
+  }
+
   async deleteNotebook(id: string, userId: string) {
     const deleted = await this.repo.delete(id, userId);
     if (!deleted) {
