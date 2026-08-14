@@ -6,6 +6,7 @@ import { ChatStudioPanel } from '@/components/notebook/ChatStudioPanel';
 import { AudioOverviewPanel } from '@/components/notebook/AudioOverviewPanel';
 import { NotebookSwitcher } from '@/components/notebook/NotebookSwitcher';
 import { CreateNotebookModal } from '@/components/notebook/CreateNotebookModal';
+import { AddSourceModal } from '@/components/notebook/AddSourceModal';
 import { Brain, Settings, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SignInButton, UserButton, useAuth } from '@clerk/nextjs';
@@ -43,7 +44,6 @@ export default function NotebookDashboardPage() {
         setAuthToken(null);
       }
 
-      // Prevent infinite re-fetching loop
       if (!hasFetchedRef.current) {
         hasFetchedRef.current = true;
         await useNotebookStore.getState().fetchNotebooks();
@@ -56,6 +56,7 @@ export default function NotebookDashboardPage() {
   return (
     <div className="flex flex-col h-screen overflow-hidden">
       <CreateNotebookModal />
+      <AddSourceModal />
 
       {/* Top Navbar */}
       <header className="h-14 border-b border-border bg-card/80 backdrop-blur px-4 flex items-center justify-between shrink-0">

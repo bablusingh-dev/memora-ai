@@ -12,6 +12,12 @@ const envSchema = z.object({
   CLERK_PUBLISHABLE_KEY: z.string().optional().default('pk_test_placeholder'),
   CLERK_SECRET_KEY: z.string().optional().default('sk_test_placeholder'),
   CLERK_WEBHOOK_SECRET: z.string().optional().default('whsec_placeholder'),
+  CLOUDINARY_CLOUD_NAME: z.string().optional().default('placeholder'),
+  CLOUDINARY_API_KEY: z.string().optional().default('placeholder'),
+  CLOUDINARY_API_SECRET: z.string().optional().default('placeholder'),
+  FIRECRAWL_API_KEY: z.string().optional().default('fc-placeholder'),
+  OPENAI_API_KEY: z.string().optional().default('sk-placeholder'),
+  OPENAI_MODEL: z.string().default('gpt-4o-mini'),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

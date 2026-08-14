@@ -21,6 +21,7 @@ export interface ApiErrorResponse {
 
 export interface Notebook {
   id: string;
+  userId: string;
   title: string;
   description?: string;
   createdAt: string;
@@ -32,7 +33,7 @@ export interface SourceDocument {
   id: string;
   notebookId: string;
   title: string;
-  fileType: 'pdf' | 'web' | 'text';
+  fileType: 'pdf' | 'web' | 'youtube' | 'text';
   fileUrl?: string;
   status: 'processing' | 'ready' | 'error';
   createdAt: string;

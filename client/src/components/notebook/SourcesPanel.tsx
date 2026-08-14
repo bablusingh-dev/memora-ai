@@ -1,15 +1,30 @@
 'use client';
 
 import React from 'react';
-import { FileText, Plus, Globe, CheckCircle2, BookOpen } from 'lucide-react';
+import { FileText, Plus, Globe, Youtube, CheckCircle2, BookOpen, Trash2, FileCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { useNotebookStore } from '@/store/useNotebookStore';
 
 export function SourcesPanel() {
-  const { activeNotebook } = useNotebookStore();
+  const { activeNotebook, setAddSourceModalOpen, deleteSource } = useNotebookStore();
   const sources = activeNotebook?.sources || [];
+
+  const getSourceIcon = (type: string) => {
+    switch (type) {
+      case 'pdf':
+        return <FileText className="w-4 h-4 text-primary" />;
+      case 'web':
+        return <Globe className="w-4 h-4 text-blue-400" />;
+      case 'youtube':
+        return <Youtube className="w-4 h-4 text-red-400" />;
+      case 'text':
+        return <FileCode className="w-4 h-4 text-amber-400" />;
+      default:
+        return <FileText className="w-4 h-4 text-primary" />;
+    }
+  };
 
   return (
     <div className="flex flex-col h-full bg-card/60 backdrop-blur border-r border-border p-4 space-y-4">
@@ -41,6 +56,7 @@ export function SourcesPanel() {
 
       <Button
         disabled={!activeNotebook}
+        onClick={() => setAddSourceModalOpen(true)}
         className="w-full justify-start space-x-2 bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30"
       >
         <Plus className="w-4 h-4" />
@@ -50,21 +66,32 @@ export function SourcesPanel() {
       <div className="flex-1 overflow-y-auto space-y-2 pr-1">
         {sources.length === 0 ? (
           <div className="p-6 text-center text-xs text-muted-foreground border border-dashed border-border rounded-xl">
-            No source documents added yet. Click "Add Source Document" to upload PDFs, URLs, or notes.
+            No source documents added yet. Click "Add Source Document" to upload PDFs, URLs, YouTube videos, or notes.
           </div>
         ) : (
           sources.map((source) => (
-            <Card key={source.id} className="bg-secondary/40 border-border/60 hover:border-primary/50 transition-all cursor-pointer">
+            <Card key={source.id} className="bg-secondary/40 border-border/60 hover:border-primary/50 transition-all group">
               <CardContent className="p-3 flex items-start space-x-3">
-                <div className="p-2 rounded-lg bg-background/80 text-primary">
-                  {source.fileType === 'pdf' ? <FileText className="w-4 h-4" /> : <Globe className="w-4 h-4" />}
+                <div className="p-2 rounded-lg bg-background/80 shrink-0">
+                  {getSourceIcon(source.fileType)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium truncate">{source.title}</p>
-                  <div className="flex items-center space-x-2 mt-1">
-                    <span className="flex items-center text-[10px] text-emerald-400">
-                      <CheckCircle2 className="w-3 h-3 mr-0.5" /> {source.status}
+                  <div className="flex items-center justify-between mt-1">
+                    <span className="flex items-center text-[10px] text-emerald-400 capitalize">
+                      <CheckCircle2 className="w-3 h-3 mr-0.5" /> {source.fileType} • {source.status}
                     </span>
+
+                    <button
+                      onClick={() => {
+                        if (confirm(`Delete source "${source.title}"?`)) {
+                          deleteSource(source.id);
+                        }
+                      }}
+                      className="opacity-0 group-hover:opacity-100 p-1 hover:text-destructive transition-opacity"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
               </CardContent>
