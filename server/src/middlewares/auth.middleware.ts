@@ -14,15 +14,13 @@ const isClerkConfigured =
 
 export const requireAuthMiddleware = (req: AuthenticatedRequest, res: Response, next: NextFunction) => {
   if (!isClerkConfigured) {
-    // Dev fallback mode when real Clerk secret keys are not plugged in yet
-    req.userId = 'user_dev_guest';
-    return next();
+    throw new UnauthorizedError('Clerk authentication is not properly configured on server');
   }
 
   const auth = getAuth(req);
 
   if (!auth.userId) {
-    throw new UnauthorizedError('Authentication required. Missing or invalid Bearer token.');
+    throw new UnauthorizedError('Authentication required. Please sign in to access your notebooks.');
   }
 
   req.userId = auth.userId;

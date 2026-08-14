@@ -11,15 +11,25 @@ export const apiClient: AxiosInstance = axios.create({
   timeout: 30000,
 });
 
+let currentAuthToken: string | null = null;
+
 /**
  * Set or clear Bearer authentication token for outgoing requests
  */
 export function setAuthToken(token: string | null) {
+  currentAuthToken = token ? `Bearer ${token}` : null;
   if (token) {
     apiClient.defaults.headers.common['Authorization'] = `Bearer ${token}`;
   } else {
     delete apiClient.defaults.headers.common['Authorization'];
   }
+}
+
+/**
+ * Get active Bearer authorization header value
+ */
+export function getAuthToken(): string | null {
+  return currentAuthToken || (apiClient.defaults.headers.common['Authorization'] as string) || null;
 }
 
 // Response Interceptor: Automatically unwraps standard ApiResponse data envelope

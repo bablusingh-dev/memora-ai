@@ -22,7 +22,7 @@ export function NotebookSwitcher() {
         <DropdownMenuTrigger asChild>
           <Button
             variant="outline"
-            className="h-9 px-3 bg-secondary/40 border-border hover:bg-secondary/70 text-xs font-medium max-w-[240px] flex items-center justify-between gap-2"
+            className="h-9 px-3 bg-secondary/40 border-border hover:bg-secondary/70 text-xs font-medium max-w-[240px] flex items-center justify-between gap-2 shadow-sm"
           >
             <div className="flex items-center gap-1.5 truncate">
               <BookOpen className="w-3.5 h-3.5 text-primary shrink-0" />
@@ -32,11 +32,13 @@ export function NotebookSwitcher() {
           </Button>
         </DropdownMenuTrigger>
 
-        <DropdownMenuContent align="start" className="w-[280px]">
-          <DropdownMenuLabel>My Notebooks ({notebooks.length})</DropdownMenuLabel>
+        <DropdownMenuContent align="start" className="w-[300px] z-[150] bg-card border border-border shadow-2xl">
+          <DropdownMenuLabel className="text-xs font-bold text-foreground">
+            My Notebooks ({notebooks.length})
+          </DropdownMenuLabel>
           <DropdownMenuSeparator />
 
-          <div className="max-h-[220px] overflow-y-auto">
+          <div className="max-h-[220px] overflow-y-auto space-y-0.5">
             {notebooks.length === 0 ? (
               <div className="p-3 text-center text-xs text-muted-foreground">
                 No notebooks found. Create one to get started!
@@ -48,13 +50,13 @@ export function NotebookSwitcher() {
                   <DropdownMenuItem
                     key={nb.id}
                     onClick={() => setActiveNotebook(nb)}
-                    className="flex items-center justify-between group cursor-pointer"
+                    className={`flex items-center justify-between group cursor-pointer p-2 rounded-lg ${
+                      isActive ? 'bg-primary/10 text-primary font-semibold' : 'hover:bg-secondary/50'
+                    }`}
                   >
-                    <div className="flex items-center gap-2 truncate pr-2">
-                      <BookOpen className={`w-3.5 h-3.5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
-                      <span className={`text-xs truncate ${isActive ? 'font-semibold text-primary' : ''}`}>
-                        {nb.title}
-                      </span>
+                    <div className="flex items-center gap-2 truncate pr-2 flex-1 min-w-0">
+                      <BookOpen className={`w-3.5 h-3.5 shrink-0 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                      <span className="text-xs truncate">{nb.title}</span>
                     </div>
 
                     <div className="flex items-center space-x-1 shrink-0">
@@ -80,10 +82,10 @@ export function NotebookSwitcher() {
           <DropdownMenuSeparator />
           <DropdownMenuItem
             onClick={() => setCreateModalOpen(true)}
-            className="text-primary focus:text-primary cursor-pointer gap-2"
+            className="text-primary focus:text-primary cursor-pointer gap-2 font-medium"
           >
-            <Plus className="w-4 h-4" />
-            <span className="font-medium text-xs">Create New Notebook</span>
+            <Plus className="w-4 h-4 text-primary" />
+            <span className="text-xs">Create New Notebook</span>
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
@@ -91,7 +93,7 @@ export function NotebookSwitcher() {
       <Button
         size="sm"
         onClick={() => setCreateModalOpen(true)}
-        className="h-9 text-xs bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30"
+        className="h-9 text-xs bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 font-medium"
       >
         <Plus className="w-3.5 h-3.5 mr-1" /> New Notebook
       </Button>

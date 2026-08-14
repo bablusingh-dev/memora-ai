@@ -15,8 +15,12 @@ export const handleAgentChatStream = asyncHandler(async (req: AuthenticatedReque
     throw new BadRequestError('Request body must include an array of chat messages');
   }
 
+  // Disable Nagle's algorithm — without this, TCP batches all small SSE chunks and
+  // sends them together at the same timestamp, making streaming appear frozen then
+  // dumping all content at once.
+  res.socket?.setNoDelay(true);
+
   const result = await agentService.streamAgentChat(notebookId, userId, messages);
 
-  // Use pipeTextStreamToResponse to stream text & tool outputs to Express HTTP Response
-  result.pipeTextStreamToResponse(res);
+  result.pipeUIMessageStreamToResponse(res);
 });

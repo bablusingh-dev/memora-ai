@@ -1,10 +1,11 @@
 import { create } from 'zustand';
 import { apiClient } from '@/lib/api-client';
-import { Notebook, SourceDocument } from '@/types/api';
+import { Notebook, SourceDocument, Note } from '@/types/api';
 
 interface NotebookState {
   notebooks: Notebook[];
   activeNotebook: Notebook | null;
+  activeNotes: Note[];
   isLoading: boolean;
   error: string | null;
   isCreateModalOpen: boolean;
@@ -13,7 +14,7 @@ interface NotebookState {
   // Actions
   setCreateModalOpen: (open: boolean) => void;
   setAddSourceModalOpen: (open: boolean) => void;
-  setActiveNotebook: (notebook: Notebook | null) => void;
+  setActiveNotebook: (notebook: Notebook | null) => Promise<void>;
   fetchNotebooks: () => Promise<void>;
   createNotebook: (title: string, description?: string) => Promise<Notebook>;
   deleteNotebook: (id: string) => Promise<void>;
@@ -25,11 +26,17 @@ interface NotebookState {
   ingestYoutubeSource: (url: string) => Promise<SourceDocument>;
   createTextSource: (title: string, content: string) => Promise<SourceDocument>;
   deleteSource: (sourceId: string) => Promise<void>;
+
+  // Notes Actions
+  fetchNotes: () => Promise<void>;
+  createNote: (title: string, content: string, type?: string) => Promise<Note>;
+  deleteNote: (noteId: string) => Promise<void>;
 }
 
 export const useNotebookStore = create<NotebookState>((set, get) => ({
   notebooks: [],
   activeNotebook: null,
+  activeNotes: [],
   isLoading: false,
   error: null,
   isCreateModalOpen: false,
@@ -38,7 +45,24 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
   setCreateModalOpen: (open: boolean) => set({ isCreateModalOpen: open }),
   setAddSourceModalOpen: (open: boolean) => set({ isAddSourceModalOpen: open }),
 
-  setActiveNotebook: (notebook: Notebook | null) => set({ activeNotebook: notebook }),
+  setActiveNotebook: async (notebook: Notebook | null) => {
+    if (!notebook) {
+      set({ activeNotebook: null, activeNotes: [] });
+      return;
+    }
+    set({ activeNotebook: notebook });
+    
+    // Fetch full detailed notebook sources and notes when active notebook changes
+    try {
+      const [detailedNotebook, notesList] = await Promise.all([
+        apiClient.get<any, Notebook>(`/notebooks/${notebook.id}`),
+        apiClient.get<any, Note[]>(`/notebooks/${notebook.id}/notes`),
+      ]);
+      set({ activeNotebook: detailedNotebook, activeNotes: notesList });
+    } catch (e) {
+      // ignore
+    }
+  },
 
   fetchNotebooks: async () => {
     set({ isLoading: true, error: null });
@@ -48,13 +72,16 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
       
       let nextActive = active ? data.find((n) => n.id === active.id) || data[0] || null : data[0] || null;
 
-      // If active notebook exists, fetch its detailed sources
       if (nextActive) {
         try {
-          const detailed = await apiClient.get<any, Notebook>(`/notebooks/${nextActive.id}`);
+          const [detailed, notesList] = await Promise.all([
+            apiClient.get<any, Notebook>(`/notebooks/${nextActive.id}`),
+            apiClient.get<any, Note[]>(`/notebooks/${nextActive.id}/notes`),
+          ]);
           nextActive = detailed;
+          set({ activeNotes: notesList });
         } catch (e) {
-          // ignore error fallback
+          // ignore
         }
       }
 
@@ -73,6 +100,7 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
       set({
         notebooks: [newNotebook, ...currentList],
         activeNotebook: { ...newNotebook, sources: [] },
+        activeNotes: [],
         isLoading: false,
         isCreateModalOpen: false,
       });
@@ -95,8 +123,12 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
       set({
         notebooks: updatedList,
         activeNotebook: nextActive,
+        activeNotes: [],
         isLoading: false,
       });
+      if (nextActive) {
+        get().setActiveNotebook(nextActive);
+      }
     } catch (err: any) {
       set({ error: err.message || 'Failed to delete notebook', isLoading: false });
       throw err;
@@ -249,6 +281,43 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
       });
     } catch (err: any) {
       set({ error: err.message || 'Failed to delete source document', isLoading: false });
+      throw err;
+    }
+  },
+
+  // Notes Implementation
+  fetchNotes: async () => {
+    const active = get().activeNotebook;
+    if (!active) return;
+    try {
+      const notesList = await apiClient.get<any, Note[]>(`/notebooks/${active.id}/notes`);
+      set({ activeNotes: notesList });
+    } catch (err: any) {
+      // ignore
+    }
+  },
+
+  createNote: async (title: string, content: string, type = 'user_note') => {
+    const active = get().activeNotebook;
+    if (!active) throw new Error('No active notebook selected');
+    try {
+      const newNote = await apiClient.post<any, Note>(`/notebooks/${active.id}/notes`, { title, content, type });
+      set({ activeNotes: [newNote, ...get().activeNotes] });
+      return newNote;
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to create note' });
+      throw err;
+    }
+  },
+
+  deleteNote: async (noteId: string) => {
+    const active = get().activeNotebook;
+    if (!active) throw new Error('No active notebook selected');
+    try {
+      await apiClient.delete(`/notebooks/${active.id}/notes/${noteId}`);
+      set({ activeNotes: get().activeNotes.filter((n) => n.id !== noteId) });
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to delete note' });
       throw err;
     }
   },

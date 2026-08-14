@@ -19,14 +19,14 @@ export interface ApiErrorResponse {
   timestamp: string;
 }
 
-export interface Notebook {
+export interface Note {
   id: string;
-  userId: string;
+  notebookId: string;
   title: string;
-  description?: string;
+  content: string;
+  type: 'user_note' | 'ai_summary' | 'study_guide';
   createdAt: string;
   updatedAt: string;
-  sources?: SourceDocument[];
 }
 
 export interface SourceDocument {
@@ -37,6 +37,17 @@ export interface SourceDocument {
   fileUrl?: string;
   status: 'processing' | 'ready' | 'error';
   createdAt: string;
+}
+
+export interface Notebook {
+  id: string;
+  userId: string;
+  title: string;
+  description?: string;
+  createdAt: string;
+  updatedAt: string;
+  sources?: SourceDocument[];
+  notes?: Note[];
 }
 
 export interface DocumentChunk {

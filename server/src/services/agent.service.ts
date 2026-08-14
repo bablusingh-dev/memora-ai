@@ -93,10 +93,14 @@ CRITICAL INSTRUCTIONS:
       },
     });
 
+    // Convert @ai-sdk/react v4 UIMessage format (parts[]) to ModelMessage format (content string)
+    // that the server-side streamText() function expects.
+    const modelMessages = this.convertToModelMessages(messages);
+
     const result = streamText({
       model: openai(env.OPENAI_MODEL),
       system: systemPrompt,
-      messages,
+      messages: modelMessages,
       maxSteps: 5,
       tools: {
         searchParadeDB,
@@ -105,5 +109,37 @@ CRITICAL INSTRUCTIONS:
     } as any);
 
     return result;
+  }
+
+  /**
+   * Convert UIMessage[] (sent by @ai-sdk/react v4 client) to ModelMessage[]
+   * (expected by server-side streamText).
+   *
+   * UIMessage v4 shape: { role, id, parts: [{ type: 'text', text: string }] }
+   * ModelMessage shape: { role: 'user'|'assistant', content: string }
+   */
+  private convertToModelMessages(uiMessages: any[]): any[] {
+    return uiMessages
+      .map((msg) => {
+        const role = msg.role as string;
+
+        // Extract text content from either v4 parts array or legacy content string
+        let content: string;
+        if (typeof msg.content === 'string') {
+          content = msg.content;
+        } else if (Array.isArray(msg.parts)) {
+          content = msg.parts
+            .filter((p: any) => p.type === 'text')
+            .map((p: any) => p.text as string)
+            .join('');
+        } else {
+          content = '';
+        }
+
+        if (!content.trim()) return null;
+
+        return { role, content };
+      })
+      .filter(Boolean);
   }
 }
