@@ -1,5 +1,6 @@
 import { YoutubeTranscript } from 'youtube-transcript';
 import { logger } from '../utils/logger.js';
+import { BadRequestError, InternalServerError } from '../utils/api-error.js';
 
 export class YoutubeService {
   /**
@@ -17,13 +18,17 @@ export class YoutubeService {
   async getTranscript(url: string): Promise<{ title: string; text: string }> {
     const videoId = YoutubeService.extractVideoId(url);
     if (!videoId) {
-      throw new Error('Invalid YouTube video URL');
+      throw new BadRequestError('Invalid YouTube video URL format');
     }
 
     logger.info({ videoId, url }, 'Extracting transcript for YouTube video');
 
     try {
       const items = await YoutubeTranscript.fetchTranscript(videoId);
+      if (!items || items.length === 0) {
+        throw new BadRequestError(`No transcript or closed captions found for YouTube video ID '${videoId}'`);
+      }
+
       const transcriptText = items.map((item) => item.text).join(' ');
       const title = `YouTube Transcript [${videoId}]`;
 
@@ -32,11 +37,8 @@ export class YoutubeService {
         text: `# ${title}\n\nURL: ${url}\n\n${transcriptText}`,
       };
     } catch (err: any) {
-      logger.error({ err: err.message, videoId }, 'Failed to fetch YouTube transcript, using fallback');
-      return {
-        title: `YouTube Video (${videoId})`,
-        text: `# YouTube Video Overview\n\nURL: ${url}\n\nTranscript unavailable for this video (or closed captions disabled). Key metadata saved for reference.`,
-      };
+      logger.error({ err: err.message, videoId }, 'Failed to fetch YouTube transcript');
+      throw new InternalServerError(`Failed to fetch YouTube transcript for video ID '${videoId}': ${err.message}`);
     }
   }
 }

@@ -1,6 +1,7 @@
 import { v2 as cloudinary } from 'cloudinary';
 import { env } from '../config/env.js';
 import { logger } from './logger.js';
+import { BadRequestError } from './api-error.js';
 
 cloudinary.config({
   cloud_name: env.CLOUDINARY_CLOUD_NAME,
@@ -13,15 +14,15 @@ export async function uploadToCloudinary(
   fileName: string,
   folder = 'memora-ai/sources'
 ): Promise<string> {
-  // If Cloudinary keys are placeholders, fallback to a mock URL for seamless local testing
   if (
     !env.CLOUDINARY_CLOUD_NAME ||
     env.CLOUDINARY_CLOUD_NAME === 'placeholder' ||
     !env.CLOUDINARY_API_KEY ||
     env.CLOUDINARY_API_KEY === 'placeholder'
   ) {
-    logger.info({ fileName }, 'Cloudinary keys not set, returning mock asset URL for local dev');
-    return `https://res.cloudinary.com/demo/image/upload/v1/memora/${encodeURIComponent(fileName)}`;
+    throw new BadRequestError(
+      'Cloudinary API credentials are missing or set to placeholder. Please configure CLOUDINARY_CLOUD_NAME, CLOUDINARY_API_KEY, and CLOUDINARY_API_SECRET in server/.env.'
+    );
   }
 
   return new Promise((resolve, reject) => {
@@ -34,7 +35,7 @@ export async function uploadToCloudinary(
       (error, result) => {
         if (error || !result) {
           logger.error({ error }, 'Failed to upload asset to Cloudinary');
-          return reject(error || new Error('Cloudinary upload failed'));
+          return reject(error || new Error('Cloudinary asset upload failed'));
         }
         logger.info({ publicId: result.public_id, url: result.secure_url }, 'Asset uploaded to Cloudinary successfully');
         resolve(result.secure_url);
