@@ -22,6 +22,21 @@ export async function connectDB() {
   try {
     const client = await pool.connect();
     logger.info({ databaseUrl: env.DATABASE_URL.replace(/:[^:@]+@/, ':****@') }, 'Database connection verified');
+
+    // Ensure chat_messages table exists
+    await client.query(`
+      CREATE TABLE IF NOT EXISTS chat_messages (
+        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        notebook_id UUID NOT NULL REFERENCES notebooks(id) ON DELETE CASCADE,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        role TEXT NOT NULL,
+        content TEXT NOT NULL,
+        parts JSONB,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      );
+      CREATE INDEX IF NOT EXISTS idx_chat_messages_notebook_id ON chat_messages(notebook_id);
+    `);
+
     client.release();
   } catch (error) {
     logger.error({ error }, 'Failed to connect to PostgreSQL / ParadeDB database');

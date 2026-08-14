@@ -3,6 +3,7 @@ import { streamText, tool, isStepCount } from 'ai';
 import { z } from 'zod';
 import { env } from '../config/env.js';
 import { NotebookRepository } from '../repositories/notebook.repository.js';
+import { ChatRepository } from '../repositories/chat.repository.js';
 import { db } from '../db/index.js';
 import { notes } from '../db/schema.js';
 import { logger } from '../utils/logger.js';
@@ -10,9 +11,33 @@ import { BadRequestError } from '../utils/api-error.js';
 
 export class AgentService {
   private notebookRepo: NotebookRepository;
+  private chatRepo: ChatRepository;
 
   constructor() {
     this.notebookRepo = new NotebookRepository();
+    this.chatRepo = new ChatRepository();
+  }
+
+  /**
+   * Get historical chat messages for a notebook
+   */
+  async getChatHistory(notebookId: string, userId: string) {
+    const notebook = await this.notebookRepo.findById(notebookId, userId);
+    if (!notebook) {
+      throw new BadRequestError(`Notebook '${notebookId}' not found or access denied`);
+    }
+    return await this.chatRepo.findByNotebookId(notebookId, userId);
+  }
+
+  /**
+   * Clear historical chat messages for a notebook
+   */
+  async clearChatHistory(notebookId: string, userId: string) {
+    const notebook = await this.notebookRepo.findById(notebookId, userId);
+    if (!notebook) {
+      throw new BadRequestError(`Notebook '${notebookId}' not found or access denied`);
+    }
+    return await this.chatRepo.clearByNotebookId(notebookId, userId);
   }
 
   /**
@@ -29,6 +54,33 @@ export class AgentService {
       throw new BadRequestError(
         'OpenAI API Key is missing or set to placeholder. Please add OPENAI_API_KEY to server/.env to enable AI streaming and tool calling.'
       );
+    }
+
+    // Persist the latest incoming user message to the database
+    try {
+      const lastUserMsg = [...messages].reverse().find((m) => m.role === 'user');
+      if (lastUserMsg) {
+        let userContent = '';
+        if (typeof lastUserMsg.content === 'string') {
+          userContent = lastUserMsg.content;
+        } else if (Array.isArray(lastUserMsg.parts)) {
+          userContent = lastUserMsg.parts
+            .filter((p: any) => p.type === 'text')
+            .map((p: any) => p.text)
+            .join('');
+        }
+        if (userContent.trim()) {
+          await this.chatRepo.createMessage({
+            notebookId,
+            userId,
+            role: 'user',
+            content: userContent.trim(),
+            parts: lastUserMsg.parts || [{ type: 'text', text: userContent.trim() }],
+          });
+        }
+      }
+    } catch (err) {
+      logger.error({ err, notebookId }, 'Failed to persist user chat message to database');
     }
 
     const openai = createOpenAI({
@@ -108,6 +160,44 @@ CRITICAL INSTRUCTIONS:
       tools: {
         searchParadeDB,
         createNotebookNote,
+      },
+      onFinish: async (event: any) => {
+        try {
+          const assistantText = event.text || '';
+          const parts: any[] = [];
+
+          // Reconstruct tool parts with outputs for persistence
+          if (event.toolCalls && Array.isArray(event.toolCalls)) {
+            for (const tc of event.toolCalls) {
+              const tr = event.toolResults?.find((r: any) => r.toolCallId === tc.toolCallId);
+              parts.push({
+                type: `tool-${tc.toolName}`,
+                toolName: tc.toolName,
+                toolCallId: tc.toolCallId,
+                state: 'result',
+                input: tc.args,
+                output: tr?.result,
+              });
+            }
+          }
+
+          if (assistantText) {
+            parts.push({ type: 'text', text: assistantText });
+          }
+
+          if (assistantText || parts.length > 0) {
+            await this.chatRepo.createMessage({
+              notebookId,
+              userId,
+              role: 'assistant',
+              content: assistantText,
+              parts,
+            });
+            logger.info({ notebookId, userId }, 'Persisted assistant chat response to database');
+          }
+        } catch (saveErr) {
+          logger.error({ saveErr, notebookId }, 'Failed to persist assistant chat response');
+        }
       },
     } as any);
 

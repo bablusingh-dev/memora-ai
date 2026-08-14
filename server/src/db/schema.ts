@@ -59,3 +59,18 @@ export const notes = pgTable('notes', {
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
+
+export const chatMessages = pgTable('chat_messages', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  notebookId: uuid('notebook_id')
+    .references(() => notebooks.id, { onDelete: 'cascade' })
+    .notNull(),
+  userId: text('user_id')
+    .references(() => users.id, { onDelete: 'cascade' })
+    .notNull(),
+  role: text('role').notNull(), // 'user' | 'assistant'
+  content: text('content').notNull(),
+  parts: jsonb('parts'), // tool invocations, citations, structured parts
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+});
+

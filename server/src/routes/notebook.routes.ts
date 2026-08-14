@@ -29,8 +29,9 @@ router.get('/:id/search', validateRequest({ params: uuidParamSchema }), searchNo
 // Nested Source Document Routes (/api/v1/notebooks/:notebookId/sources)
 router.use('/:notebookId/sources', sourceRoutes);
 
-// Nested Agentic RAG Chat Routes (/api/v1/notebooks/:notebookId/chat)
+// Nested Agentic RAG Chat Routes (/api/v1/notebooks/:notebookId/chat & /messages)
 router.use('/:notebookId/chat', chatRoutes);
+router.use('/:notebookId/messages', chatRoutes);
 
 // Nested Notes Routes (/api/v1/notebooks/:notebookId/notes)
 router.use('/:notebookId/notes', noteRoutes);

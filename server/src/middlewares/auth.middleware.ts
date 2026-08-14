@@ -2,6 +2,7 @@ import { Request, Response, NextFunction } from 'express';
 import { getAuth } from '@clerk/express';
 import { UnauthorizedError } from '../utils/api-error.js';
 import { env } from '../config/env.js';
+import { logger } from '../utils/logger.js';
 
 export interface AuthenticatedRequest extends Request {
   userId?: string;
@@ -20,6 +21,15 @@ export const requireAuthMiddleware = (req: AuthenticatedRequest, res: Response, 
   const auth = getAuth(req);
 
   if (!auth.userId) {
+    logger.warn(
+      {
+        hasAuthHeader: !!req.headers.authorization,
+        authHeaderPrefix: req.headers.authorization ? req.headers.authorization.substring(0, 15) : 'none',
+        url: req.originalUrl,
+        method: req.method,
+      },
+      'requireAuthMiddleware rejected request - missing userId from Clerk'
+    );
     throw new UnauthorizedError('Authentication required. Please sign in to access your notebooks.');
   }
 

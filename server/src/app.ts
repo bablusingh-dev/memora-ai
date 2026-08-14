@@ -17,15 +17,20 @@ const isClerkConfigured =
   env.CLERK_SECRET_KEY.startsWith('sk_') &&
   !env.CLERK_SECRET_KEY.includes('placeholder');
 
-// Security Headers
-app.use(helmet());
+// Security Headers (allow cross-origin reads from client)
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: 'cross-origin' },
+  })
+);
 
 // CORS configuration
 app.use(
   cors({
-    origin: env.CORS_ORIGIN,
+    origin: [env.CORS_ORIGIN, 'http://localhost:3000', 'http://127.0.0.1:3000'],
     credentials: true,
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'x-requested-with', 'Accept'],
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   })
 );
 
