@@ -61,7 +61,26 @@ export class NotebookRepository {
    * Search chunks using ParadeDB BM25 pg_search algorithmic indexing
    * Scoped by notebookId
    */
-  async searchBM25(notebookId: string, query: string, limit = 5): Promise<any[]> {
+  async searchBM25(notebookId: string, query?: string, limit = 5): Promise<any[]> {
+    const cleanQuery = query?.trim();
+
+    if (!cleanQuery) {
+      const result = await db.execute(sql`
+        SELECT 
+          id, 
+          source_id, 
+          notebook_id, 
+          content, 
+          chunk_index,
+          1.0 AS bm25_score
+        FROM document_chunks
+        WHERE notebook_id = ${notebookId}
+        ORDER BY chunk_index ASC
+        LIMIT ${limit}
+      `);
+      return result.rows;
+    }
+
     try {
       const result = await db.execute(sql`
         SELECT 
@@ -72,7 +91,7 @@ export class NotebookRepository {
           chunk_index,
           score() AS bm25_score
         FROM document_chunks
-        WHERE notebook_id = ${notebookId} AND content @@@ ${query}
+        WHERE notebook_id = ${notebookId} AND content @@@ ${cleanQuery}
         ORDER BY bm25_score DESC
         LIMIT ${limit}
       `);
@@ -87,7 +106,7 @@ export class NotebookRepository {
           chunk_index,
           1.0 AS bm25_score
         FROM document_chunks
-        WHERE notebook_id = ${notebookId} AND content ILIKE ${'%' + query + '%'}
+        WHERE notebook_id = ${notebookId} AND content ILIKE ${'%' + cleanQuery + '%'}
         LIMIT ${limit}
       `);
       return fallbackResult.rows;

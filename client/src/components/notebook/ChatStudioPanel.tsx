@@ -115,35 +115,48 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
                           .map((p: any, i: number) => <span key={i}>{p.text}</span>)}
                   </div>
 
-                  {(message.toolInvocations as any[])?.map((inv: any) => (
-                    <div
-                      key={inv.toolCallId}
-                      className="mt-2 p-2 rounded-lg bg-secondary/50 border border-border/60 text-[11px] space-y-1"
-                    >
-                      <div className="flex items-center gap-1.5 font-medium text-primary">
-                        {inv.toolName === 'searchParadeDB' ? (
-                          <Database className="w-3.5 h-3.5" />
-                        ) : (
-                          <FilePlus className="w-3.5 h-3.5" />
-                        )}
-                        <span>Tool: {inv.toolName}</span>
-                        {inv.state === 'call' && <Loader2 className="w-3 h-3 animate-spin ml-auto" />}
-                      </div>
-                      {inv.toolName === 'searchParadeDB' && inv.state === 'result' && (
-                        <div className="flex flex-wrap gap-1 mt-1">
-                          {(inv.result as any)?.results?.map((res: any, i: number) => (
-                            <button
-                              key={res.id || i}
-                              onClick={() => setSelectedCitation(res)}
-                              className="px-2 py-0.5 rounded bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-[10px] font-mono flex items-center gap-1 transition-colors"
-                            >
-                              <Info className="w-2.5 h-2.5" /> Chunk #{res.chunkIndex + 1}
-                            </button>
-                          ))}
+                  {/* Render Tool Invocations from v4 parts or legacy toolInvocations */}
+                  {((message.parts as any[])?.filter((p: any) => p.type?.startsWith('tool-') || p.type === 'dynamic-tool') ||
+                    (message.toolInvocations as any[]) ||
+                    [])?.map((toolPart: any, idx: number) => {
+                    const toolName = toolPart.toolName || toolPart.type?.replace('tool-', '');
+                    const toolCallId = toolPart.toolCallId || `tool-${idx}`;
+                    const state = toolPart.state;
+                    const output = toolPart.output || toolPart.result;
+
+                    return (
+                      <div
+                        key={toolCallId}
+                        className="mt-2 p-2 rounded-lg bg-secondary/50 border border-border/60 text-[11px] space-y-1"
+                      >
+                        <div className="flex items-center gap-1.5 font-medium text-primary">
+                          {toolName === 'searchParadeDB' ? (
+                            <Database className="w-3.5 h-3.5" />
+                          ) : (
+                            <FilePlus className="w-3.5 h-3.5" />
+                          )}
+                          <span>Tool: {toolName}</span>
+                          {(state === 'call' || state === 'input-streaming') && (
+                            <Loader2 className="w-3 h-3 animate-spin ml-auto" />
+                          )}
                         </div>
-                      )}
-                    </div>
-                  ))}
+
+                        {toolName === 'searchParadeDB' && (state === 'result' || output?.results) && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {output?.results?.map((res: any, i: number) => (
+                              <button
+                                key={res.id || i}
+                                onClick={() => setSelectedCitation(res)}
+                                className="px-2 py-0.5 rounded bg-primary/10 hover:bg-primary/20 text-primary border border-primary/30 text-[10px] font-mono flex items-center gap-1 transition-colors"
+                              >
+                                <Info className="w-2.5 h-2.5" /> Chunk #{res.chunkIndex + 1}
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </Card>
               </div>
 

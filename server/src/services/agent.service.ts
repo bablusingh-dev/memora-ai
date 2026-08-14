@@ -1,5 +1,5 @@
 import { createOpenAI } from '@ai-sdk/openai';
-import { streamText, tool } from 'ai';
+import { streamText, tool, isStepCount } from 'ai';
 import { z } from 'zod';
 import { env } from '../config/env.js';
 import { NotebookRepository } from '../repositories/notebook.repository.js';
@@ -42,23 +42,26 @@ You are Memora AI, an intelligent, grounded Notebook LLM assistant.
 Your goal is to answer the user's questions accurately using facts from their notebook source documents.
 
 CRITICAL INSTRUCTIONS:
-1. Whenever the user asks a question about their sources, research topics, or documents, ALWAYS call the 'searchParadeDB' tool to retrieve relevant text chunks from ParadeDB vectorless search.
-2. Ground your answers strictly in the retrieved source facts. If information is unavailable in the retrieved context, explicitly inform the user.
-3. Include inline citation brackets like [Source: Document Title] whenever referencing facts.
-4. If the user asks to save an insight or note, call the 'createNotebookNote' tool.
+1. Whenever the user asks a question about their sources, research topics, videos, or documents, ALWAYS call the 'searchParadeDB' tool first to retrieve relevant text chunks from ParadeDB search.
+2. Formulate concise keywords or questions in the 'query' parameter when searching.
+3. After retrieving facts from searchParadeDB, provide a thorough, helpful, and direct answer based on the retrieved context.
+4. Ground your answers strictly in the retrieved source facts. If information is unavailable in the retrieved context, explicitly inform the user.
+5. Include inline citation brackets like [Source: Document Title] or [Chunk #N] when referencing facts.
+6. If the user asks to save an insight or note, call the 'createNotebookNote' tool.
 `;
 
     const searchParadeDB = (tool as any)({
       description: 'Search document text chunks indexed in ParadeDB using BM25 vectorless search',
       parameters: z.object({
-        query: z.string().describe('Search query keywords or questions'),
+        query: z.string().optional().describe('Search query keywords or questions. If searching for all topics/video contents, provide key topic keywords or leave empty.'),
         topK: z.number().optional().default(5).describe('Number of top relevant chunks to retrieve'),
       }),
-      execute: async ({ query, topK }: { query: string; topK: number }) => {
+      execute: async ({ query, topK }: { query?: string; topK?: number }) => {
         logger.info({ notebookId, query, topK }, 'Agent executing searchParadeDB tool call');
-        const chunks = await this.notebookRepo.searchBM25(notebookId, query, topK || 5);
+        const cleanQuery = query?.trim() || '';
+        const chunks = await this.notebookRepo.searchBM25(notebookId, cleanQuery, topK || 5);
         return {
-          query,
+          query: cleanQuery,
           retrievedCount: chunks.length,
           results: chunks.map((c) => ({
             id: c.id,
@@ -101,7 +104,7 @@ CRITICAL INSTRUCTIONS:
       model: openai(env.OPENAI_MODEL),
       system: systemPrompt,
       messages: modelMessages,
-      maxSteps: 5,
+      stopWhen: isStepCount(5),
       tools: {
         searchParadeDB,
         createNotebookNote,
