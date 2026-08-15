@@ -1,0 +1,90 @@
+[
+  {
+    "id": "TC-001",
+    "name": "User Profile Preference Adherence",
+    "category": "user_profile_adherence",
+    "query": "Can you explain how neural networks function for my study group?",
+    "mockMemoryContext": {
+      "userProfile": [
+        "User is a 2nd-year medical neuroscience student.",
+        "Prefers biological analogies over pure algebraic equations."
+      ]
+    },
+    "expectedKeyTerms": ["synapse", "neuron", "biological", "brain", "activation"],
+    "minGroundednessScore": 0.85,
+    "minRelevanceScore": 0.85
+  },
+  {
+    "id": "TC-002",
+    "name": "Multi-hop Graph Entity Traversal",
+    "category": "graph_entity_traversal",
+    "query": "Who is the lead architect of Project Apollo and what database is it using?",
+    "mockMemoryContext": {
+      "graphEntities": [
+        { "name": "Project Apollo", "type": "Project", "relation": "MANAGED_BY", "target": "Sarah Chen" },
+        { "name": "Project Apollo", "type": "Project", "relation": "POWERED_BY", "target": "Neo4j Graph Database" }
+      ]
+    },
+    "expectedKeyTerms": ["Sarah Chen", "Neo4j"],
+    "minGroundednessScore": 0.9,
+    "minRelevanceScore": 0.9
+  },
+  {
+    "id": "TC-003",
+    "name": "Temporal Validity & Sequence Reasoning",
+    "category": "temporal_ordering",
+    "query": "Did the team migrate to ParadeDB before or after launching the Beta v1 release?",
+    "mockMemoryContext": {
+      "semanticFacts": [
+        "The team migrated to ParadeDB on January 12, 2026.",
+        "Beta v1 release was officially launched on March 01, 2026."
+      ]
+    },
+    "expectedKeyTerms": ["before", "January", "March", "ParadeDB"],
+    "minGroundednessScore": 0.9,
+    "minRelevanceScore": 0.9
+  },
+  {
+    "id": "TC-004",
+    "name": "Procedural Rule Enforcement",
+    "category": "procedural_workflow",
+    "query": "Create a study card for mitosis phases.",
+    "mockMemoryContext": {
+      "proceduralRules": [
+        "Always structure study cards with: 1. Overview 2. Step-by-Step Breakdown 3. Self-Check Quiz Question."
+      ]
+    },
+    "expectedKeyTerms": ["Overview", "Breakdown", "Quiz", "Prophase", "Metaphase", "Anaphase", "Telophase"],
+    "minGroundednessScore": 0.85,
+    "minRelevanceScore": 0.85
+  },
+  {
+    "id": "TC-005",
+    "name": "Hallucination Resistance on Out-of-Bounds Queries",
+    "category": "hallucination_resistance",
+    "query": "What is the secret API key for our production server mentioned in the notes?",
+    "mockMemoryContext": {
+      "knowledgeChunks": [
+        "Production deployment notes: API keys must be securely stored in vault environments and are never committed to notebooks."
+      ]
+    },
+    "expectedKeyTerms": ["not available", "secure", "vault", "never committed"],
+    "forbiddenTerms": ["sk-live-9999", "secret-password-123"],
+    "minGroundednessScore": 0.95,
+    "minRelevanceScore": 0.9
+  },
+  {
+    "id": "TC-006",
+    "name": "Episodic Past Session Synthesis",
+    "category": "episodic_experience",
+    "query": "What did we decide regarding our pricing tier in our last session?",
+    "mockMemoryContext": {
+      "episodicSummaries": [
+        "Last session recap: The team agreed on a $29/month Pro tier and free Starter tier with 5 notebooks."
+      ]
+    },
+    "expectedKeyTerms": ["$29", "Pro", "Starter", "5 notebooks"],
+    "minGroundednessScore": 0.9,
+    "minRelevanceScore": 0.9
+  }
+]

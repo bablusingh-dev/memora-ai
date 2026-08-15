@@ -11,7 +11,7 @@ export const pool = new Pool({
 });
 
 pool.on('connect', () => {
-  logger.info('🐘 PostgreSQL / ParadeDB database pool connected successfully');
+  logger.info('[DB] PostgreSQL / ParadeDB database pool connected successfully');
 });
 
 pool.on('error', (err) => {
@@ -23,7 +23,7 @@ export async function connectDB() {
     const client = await pool.connect();
     logger.info({ databaseUrl: env.DATABASE_URL.replace(/:[^:@]+@/, ':****@') }, 'Database connection verified');
 
-    // Ensure chat_messages table exists
+    // Ensure chat_messages table and ParadeDB BM25 index exist
     await client.query(`
       CREATE TABLE IF NOT EXISTS chat_messages (
         id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -32,9 +32,24 @@ export async function connectDB() {
         role TEXT NOT NULL,
         content TEXT NOT NULL,
         parts JSONB,
+        is_graph_indexed BOOLEAN NOT NULL DEFAULT FALSE,
         created_at TIMESTAMP NOT NULL DEFAULT NOW()
       );
       CREATE INDEX IF NOT EXISTS idx_chat_messages_notebook_id ON chat_messages(notebook_id);
+
+      DO $$
+      BEGIN
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'chat_messages') THEN
+          ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS is_graph_indexed BOOLEAN NOT NULL DEFAULT FALSE;
+          CREATE INDEX IF NOT EXISTS idx_chat_messages_graph_indexed ON chat_messages(is_graph_indexed);
+        END IF;
+
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'document_chunks') THEN
+          ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS is_graph_indexed BOOLEAN NOT NULL DEFAULT FALSE;
+          CREATE INDEX IF NOT EXISTS idx_document_chunks_graph_indexed ON document_chunks(is_graph_indexed);
+          CREATE INDEX IF NOT EXISTS idx_document_chunks_bm25 ON document_chunks USING bm25 (id, content) WITH (key_field='id');
+        END IF;
+      END $$;
     `);
 
     client.release();

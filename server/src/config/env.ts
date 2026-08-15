@@ -18,6 +18,26 @@ const envSchema = z.object({
   FIRECRAWL_API_KEY: z.string().optional().default('fc-placeholder'),
   OPENAI_API_KEY: z.string().optional().default('sk-placeholder'),
   OPENAI_MODEL: z.string().default('gpt-4o-mini'),
+
+  // Memory Provider Configuration
+  MEMORY_PROVIDER: z.enum(['self_hosted', 'mem0_cloud']).default('self_hosted'),
+  MEM0_HOST: z.string().default('http://localhost:8000'),
+  MEM0_API_KEY: z.string().optional(),
+
+  // Graph Database (Neo4j) Configuration
+  GRAPH_PROVIDER: z.enum(['self_hosted', 'neo4j_aura']).default('self_hosted'),
+  NEO4J_URI: z.string().default('bolt://localhost:7687'),
+  NEO4J_USER: z.string().default('neo4j'),
+  NEO4J_PASSWORD: z.string().default('memora_graph_password'),
+
+  // Reranker Configuration
+  RERANKER_PROVIDER: z.enum(['self_hosted', 'cohere_api']).default('self_hosted'),
+  COHERE_API_KEY: z.string().optional(),
+  RERANKER_MODEL: z.string().default('bge-reranker-base'),
+
+  // Evaluation & Reflection Loop Configuration
+  EVAL_MAX_RETRIES: z.coerce.number().default(3),
+  EVAL_CONFIDENCE_THRESHOLD: z.coerce.number().default(0.85),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

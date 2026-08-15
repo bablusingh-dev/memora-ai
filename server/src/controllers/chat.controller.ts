@@ -36,7 +36,7 @@ export const handleClearChatHistory = asyncHandler(async (req: AuthenticatedRequ
 export const handleAgentChatStream = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const notebookId = req.params.notebookId as string;
   const userId = req.userId!;
-  const { messages } = req.body;
+  const { messages, enableWebSearch } = req.body;
 
   if (!messages || !Array.isArray(messages)) {
     throw new BadRequestError('Request body must include an array of chat messages');
@@ -47,7 +47,9 @@ export const handleAgentChatStream = asyncHandler(async (req: AuthenticatedReque
   // dumping all content at once.
   res.socket?.setNoDelay(true);
 
-  const result = await agentService.streamAgentChat(notebookId, userId, messages);
+  const result = await agentService.streamAgentChat(notebookId, userId, messages, {
+    enableWebSearch: Boolean(enableWebSearch),
+  });
 
   result.pipeUIMessageStreamToResponse(res);
 });

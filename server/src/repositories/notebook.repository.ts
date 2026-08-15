@@ -89,7 +89,7 @@ export class NotebookRepository {
           notebook_id, 
           content, 
           chunk_index,
-          score() AS bm25_score
+          paradedb.score(id) AS bm25_score
         FROM document_chunks
         WHERE notebook_id = ${notebookId} AND content @@@ ${cleanQuery}
         ORDER BY bm25_score DESC

@@ -2,19 +2,25 @@ import { app } from './app.js';
 import { env } from './config/env.js';
 import { logger } from './utils/logger.js';
 import { pool, connectDB } from './db/index.js';
+import { graphWorker } from './services/graph/graph-worker.service.js';
 
 const server = app.listen(env.PORT, async () => {
   logger.info(
-    `🚀 Server running in [${env.NODE_ENV}] mode on http://localhost:${env.PORT}`
+    `[Server] Server running in [${env.NODE_ENV}] mode on http://localhost:${env.PORT}`
   );
-  logger.info(`📡 API Health Check available at http://localhost:${env.PORT}/api/v1/health`);
+  logger.info(`[Health] API Health Check available at http://localhost:${env.PORT}/api/v1/health`);
   
   // Verify database connection & log status
   await connectDB();
+
+  // Start background Neo4j knowledge graph worker
+  graphWorker.start(10000);
 });
 
 const gracefulShutdown = async (signal: string) => {
   logger.info(`Received ${signal}. Initiating graceful shutdown...`);
+
+  graphWorker.stop();
 
   server.close(async () => {
     logger.info('HTTP server closed.');

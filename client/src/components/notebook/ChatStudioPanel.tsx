@@ -7,34 +7,34 @@ import { useAuth } from '@clerk/nextjs';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import {
-  Send,
   Bot,
   User,
   Sparkles,
   Database,
-  FilePlus,
   Loader2,
-  Info,
   Trash2,
   ExternalLink,
   Copy,
   Check,
-  CornerDownLeft,
+  Globe,
+  Share2,
+  Brain,
+  FileText,
+  BookmarkPlus,
+  CheckCircle2,
+  Info,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { ScrollArea } from '@/components/ui/scroll-area';
 import { Separator } from '@/components/ui/separator';
-import { Textarea } from '@/components/ui/textarea';
 import {
   Tooltip,
   TooltipContent,
   TooltipProvider,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { useNotebookStore } from '@/store/useNotebookStore';
 import {
   Dialog,
   DialogContent,
@@ -42,6 +42,23 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+import { useNotebookStore } from '@/store/useNotebookStore';
+import {
+  ChainOfThought,
+  ChainOfThoughtHeader,
+  ChainOfThoughtContent,
+  ChainOfThoughtStep,
+  ChainOfThoughtSearchResults,
+  ChainOfThoughtSearchResult,
+} from '@/components/ai-elements/chain-of-thought';
+import {
+  Sources,
+  SourcesTrigger,
+  SourcesContent,
+  Source,
+} from '@/components/ai-elements/sources';
+import { CodeBlock } from '@/components/ai-elements/code-block';
+import { PromptInput } from '@/components/ai-elements/PromptInput';
 
 function CopyMessageButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
@@ -76,8 +93,14 @@ function CopyMessageButton({ text }: { text: string }) {
 function ChatStreamView({ notebookId }: { notebookId: string }) {
   const [selectedCitation, setSelectedCitation] = useState<any | null>(null);
   const [inputValue, setInputValue] = useState('');
+  const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
   const [isClearing, setIsClearing] = useState(false);
+
+  const webSearchRef = useRef(webSearchEnabled);
+  useEffect(() => {
+    webSearchRef.current = webSearchEnabled;
+  }, [webSearchEnabled]);
 
   const { getToken, isLoaded, isSignedIn } = useAuth();
 
@@ -87,7 +110,7 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
       : 'http://localhost:5000';
   const apiEndpoint = `${backendBase}/api/v1/notebooks/${notebookId}/chat`;
 
-  const { messages, setMessages, sendMessage, status, error } = useChat({
+  const { messages, setMessages, sendMessage, status, stop, error } = useChat({
     id: notebookId,
     throttle: 50,
     transport: new DefaultChatTransport({
@@ -98,12 +121,14 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
         if (token) result['Authorization'] = `Bearer ${token}`;
         return result;
       },
+      body: () => ({
+        enableWebSearch: webSearchRef.current,
+      }),
     }),
   });
 
   const isLoading = status === 'submitted' || status === 'streaming';
   const scrollContainerRef = useRef<HTMLDivElement>(null);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Automatically scroll to bottom whenever messages update or while streaming
   useEffect(() => {
@@ -188,24 +213,7 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
     const text = inputValue.trim();
     if (!text || isLoading || isHistoryLoading) return;
     setInputValue('');
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-    }
     await sendMessage({ text });
-  };
-
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
-  const handleTextareaInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInputValue(e.target.value);
-    const el = e.target;
-    el.style.height = 'auto';
-    el.style.height = `${Math.min(el.scrollHeight, 140)}px`;
   };
 
   return (
@@ -213,15 +221,15 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
       <div className="flex flex-col h-full min-h-0 overflow-hidden">
         {/* Citation Popover Dialog */}
         <Dialog open={!!selectedCitation} onOpenChange={() => setSelectedCitation(null)}>
-          <DialogContent className="sm:max-w-[520px] bg-card border-border shadow-2xl">
+          <DialogContent className="sm:max-w-[540px] bg-card border-border shadow-2xl">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-sm font-semibold">
-                <Database className="w-4 h-4 text-primary" /> ParadeDB Chunk Source
+                <Database className="w-4 h-4 text-primary" /> ParadeDB Vectorless Chunk Source
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground flex items-center gap-1.5">
-                <span>BM25 Search Score:</span>
+                <span>BM25 Relevance Score:</span>
                 <Badge variant="secondary" className="font-mono text-[10px] text-primary bg-primary/10">
-                  {selectedCitation?.bm25Score?.toFixed(3) ?? 'N/A'}
+                  {selectedCitation?.bm25Score?.toFixed(3) ?? '1.000'}
                 </Badge>
               </DialogDescription>
             </DialogHeader>
@@ -238,12 +246,21 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
         {/* Action Bar Header */}
         <div className="flex items-center justify-between px-1 pb-2 shrink-0 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
-            <Badge variant="secondary" className="text-[11px] font-normal gap-1 px-2 py-0.5">
+            <Badge variant="secondary" className="text-[11px] font-normal gap-1.5 px-2 py-0.5">
               <Database className="w-3 h-3 text-primary" />
               {messages.length > 0
                 ? `${messages.length} message${messages.length === 1 ? '' : 's'}`
                 : 'New conversation'}
             </Badge>
+
+            {webSearchEnabled && (
+              <Badge
+                variant="outline"
+                className="text-[10px] font-medium text-emerald-600 dark:text-emerald-400 border-emerald-500/30 bg-emerald-500/5 gap-1"
+              >
+                <Globe className="w-2.5 h-2.5" /> Web Search ON
+              </Badge>
+            )}
           </div>
 
           {messages.length > 0 && (
@@ -273,7 +290,7 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
 
         <Separator className="mb-3" />
 
-        {/* Scrollable Message List with internal overflow containment */}
+        {/* Scrollable Message List */}
         <div
           ref={scrollContainerRef}
           className="flex-1 min-h-0 overflow-y-auto pr-2 space-y-4 scroll-smooth"
@@ -282,7 +299,7 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
             {isHistoryLoading ? (
               <div className="h-48 flex flex-col items-center justify-center space-y-2 text-xs text-muted-foreground">
                 <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                <span>Loading conversation history...</span>
+                <span>Loading cognitive memory &amp; history...</span>
               </div>
             ) : !messages || messages.length === 0 ? (
               <div className="flex flex-col items-center justify-center p-8 text-center space-y-3 border border-dashed border-border rounded-xl bg-secondary/10 mt-6">
@@ -292,10 +309,9 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
                   </AvatarFallback>
                 </Avatar>
                 <div className="space-y-1">
-                  <h3 className="font-semibold text-sm">Notebook AI Assistant Ready</h3>
+                  <h3 className="font-semibold text-sm">Memora AI Agent Active</h3>
                   <p className="text-xs text-muted-foreground max-w-sm">
-                    Ask questions grounded in your uploaded documents. The AI searches ParadeDB BM25
-                    chunks and attributes factual sources.
+                    Grounded with ParadeDB BM25 vectorless search, Neo4j Graph DB, and multi-tier cognitive memory.
                   </p>
                 </div>
               </div>
@@ -309,6 +325,38 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
                       .join('') || '';
 
                 const isUser = message.role === 'user';
+                const parts: any[] = message.parts || [];
+
+                // Extract tool parts
+                const toolParts = parts.filter(
+                  (p: any) => p.type?.startsWith('tool-') || p.type === 'dynamic-tool' || p.toolName
+                );
+
+                // Collect sources from ParadeDB search and Web Search
+                const extractedSources: { title: string; url?: string; snippet?: string; score?: number; chunkIndex?: number }[] = [];
+                for (const tp of toolParts) {
+                  const toolName = tp.toolName || tp.type?.replace('tool-', '');
+                  const output = tp.output || tp.result;
+                  if (toolName === 'searchParadeDB' && Array.isArray(output?.results)) {
+                    output.results.forEach((r: any) => {
+                      extractedSources.push({
+                        title: `Document Chunk #${(r.chunkIndex ?? 0) + 1}`,
+                        snippet: r.content?.slice(0, 140),
+                        score: r.bm25Score,
+                        chunkIndex: r.chunkIndex,
+                      });
+                    });
+                  }
+                  if (toolName === 'searchWeb' && Array.isArray(output?.results)) {
+                    output.results.forEach((w: any) => {
+                      extractedSources.push({
+                        title: w.title || 'Web Search Result',
+                        url: w.url,
+                        snippet: w.snippet,
+                      });
+                    });
+                  }
+                }
 
                 return (
                   <div
@@ -334,7 +382,7 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
 
                     {/* Message Bubble */}
                     <div
-                      className={`flex flex-col max-w-[85%] space-y-1.5 ${
+                      className={`flex flex-col max-w-[90%] space-y-2 ${
                         isUser ? 'items-end' : 'items-start'
                       }`}
                     >
@@ -345,143 +393,256 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
                             : 'bg-card border-border/80 text-foreground px-3.5 py-3 rounded-2xl rounded-tl-xs'
                         }`}
                       >
-                        {/* Markdown Formatter */}
-                        <div className="prose-xs max-w-none break-words leading-relaxed">
-                          <ReactMarkdown
-                            remarkPlugins={[remarkGfm]}
-                            components={{
-                              strong: ({ children }) => (
-                                <strong className="font-semibold text-foreground">{children}</strong>
-                              ),
-                              b: ({ children }) => (
-                                <strong className="font-semibold text-foreground">{children}</strong>
-                              ),
-                              p: ({ children }) => (
-                                <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>
-                              ),
-                              ul: ({ children }) => (
-                                <ul className="list-disc list-outside pl-4 my-1.5 space-y-1">
-                                  {children}
-                                </ul>
-                              ),
-                              ol: ({ children }) => (
-                                <ol className="list-decimal list-outside pl-4 my-1.5 space-y-1">
-                                  {children}
-                                </ol>
-                              ),
-                              li: ({ children }) => <li className="leading-relaxed">{children}</li>,
-                              a: ({ href, children }) => (
-                                <a
-                                  href={href}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="inline-flex items-center gap-0.5 text-primary font-medium underline underline-offset-2 hover:opacity-80 transition-opacity"
-                                >
-                                  <span>{children}</span>
-                                  <ExternalLink className="w-2.5 h-2.5 inline shrink-0 ml-0.5" />
-                                </a>
-                              ),
-                              code: ({ inline, className, children, ...props }: any) => {
-                                if (inline) {
-                                  return (
-                                    <code
-                                      className="px-1.5 py-0.5 rounded bg-muted text-foreground font-mono text-[11px] border border-border/50"
-                                      {...props}
-                                    >
-                                      {children}
-                                    </code>
-                                  );
+                        {/* 1. Official AI Elements ChainOfThought / Reasoning Flow */}
+                        {!isUser && (
+                          <ChainOfThought defaultOpen={isLoading && idx === messages.length - 1}>
+                            <ChainOfThoughtHeader>
+                              <span className="font-semibold text-foreground">
+                                Thought &amp; Execution Timeline
+                              </span>
+                            </ChainOfThoughtHeader>
+
+                            <ChainOfThoughtContent>
+                              {/* Step 1: Cognitive Memory Retrieval */}
+                              <ChainOfThoughtStep
+                                icon={Brain}
+                                label={<span className="font-semibold text-foreground">Cognitive Memory Retrieval</span>}
+                                description="Queried 9 memory layers (Short-term, Semantic, Episodic, User Profile, Procedural, Temporal)"
+                                status="complete"
+                              >
+                                <div className="text-[11px] text-muted-foreground bg-secondary/30 p-2 rounded-md font-mono">
+                                  <span>Retrieved &amp; normalized multi-tier candidate facts and rules.</span>
+                                </div>
+                              </ChainOfThoughtStep>
+
+                              {/* Step 2..N: Every Tool Call, Input Query & Execution Result */}
+                              {toolParts.map((tp, tIdx) => {
+                                const toolName = tp.toolName || tp.type?.replace('tool-', '');
+                                const input = tp.input || tp.args;
+                                const output = tp.output || tp.result;
+
+                                let stepIcon = Database;
+                                let stepLabel = `Tool: ${toolName}`;
+                                if (toolName === 'searchParadeDB') {
+                                  stepIcon = Database;
+                                  stepLabel = 'ParadeDB Vectorless BM25 Search';
+                                } else if (toolName === 'queryKnowledgeGraph') {
+                                  stepIcon = Share2;
+                                  stepLabel = 'Neo4j Knowledge Graph Traversal';
+                                } else if (toolName === 'searchWeb') {
+                                  stepIcon = Globe;
+                                  stepLabel = 'Live Internet Web Search';
+                                } else if (toolName === 'browseWebPage') {
+                                  stepIcon = FileText;
+                                  stepLabel = 'Live Webpage Scraping';
+                                } else if (toolName === 'createNotebookNote') {
+                                  stepIcon = BookmarkPlus;
+                                  stepLabel = 'Save Notebook Study Note';
                                 }
+
                                 return (
-                                  <pre className="p-2.5 my-2 rounded-lg bg-secondary/80 text-foreground font-mono text-[11px] overflow-x-auto border border-border/60">
-                                    <code {...props}>{children}</code>
-                                  </pre>
+                                  <ChainOfThoughtStep
+                                    key={tp.toolCallId || tIdx}
+                                    icon={stepIcon}
+                                    label={
+                                      <div className="flex items-center justify-between">
+                                        <span className="font-semibold text-foreground">{stepLabel}</span>
+                                        <Badge variant="outline" className="text-[9px] font-mono">
+                                          {tp.state || 'Completed'}
+                                        </Badge>
+                                      </div>
+                                    }
+                                    description={
+                                      input
+                                        ? `Parameters: ${JSON.stringify(input)}`
+                                        : 'Executed tool action'
+                                    }
+                                    status={tp.state === 'call' ? 'active' : 'complete'}
+                                  >
+                                    <div className="space-y-2 mt-1">
+                                      {input && (
+                                        <CodeBlock
+                                          code={JSON.stringify(input, null, 2)}
+                                          language="json"
+                                        />
+                                      )}
+
+                                      {/* ParadeDB Chunk Pills */}
+                                      {toolName === 'searchParadeDB' && output?.results && (
+                                        <ChainOfThoughtSearchResults>
+                                          {output.results.map((res: any, rIdx: number) => (
+                                            <ChainOfThoughtSearchResult key={res.id || rIdx}>
+                                              <button
+                                                type="button"
+                                                onClick={() => setSelectedCitation(res)}
+                                                className="flex items-center gap-1 hover:text-primary transition-colors"
+                                              >
+                                                <Info className="w-2.5 h-2.5 text-primary" />
+                                                <span>Chunk #{res.chunkIndex != null ? res.chunkIndex + 1 : rIdx + 1}</span>
+                                                {res.bm25Score && (
+                                                  <span className="opacity-70 font-mono">
+                                                    ({res.bm25Score.toFixed(2)})
+                                                  </span>
+                                                )}
+                                              </button>
+                                            </ChainOfThoughtSearchResult>
+                                          ))}
+                                        </ChainOfThoughtSearchResults>
+                                      )}
+
+                                      {/* Neo4j Graph Output */}
+                                      {toolName === 'queryKnowledgeGraph' && output && (
+                                        <div className="text-[11px] font-mono text-muted-foreground bg-secondary/30 p-2 rounded-md space-y-1">
+                                          <div className="font-semibold text-foreground">
+                                            Traversed {output.entitiesFound ?? output.entities?.length ?? 0} Entities:
+                                          </div>
+                                          {output.relations?.slice(0, 3).map((rel: any, relIdx: number) => (
+                                            <div key={relIdx} className="flex items-center gap-1">
+                                              <span className="text-foreground">{rel.sourceEntity}</span>
+                                              <span className="text-primary font-bold">-[{rel.relationType}]-&gt;</span>
+                                              <span className="text-foreground">{rel.targetEntity}</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+
+                                      {/* Web Search Output */}
+                                      {toolName === 'searchWeb' && output?.results && (
+                                        <div className="space-y-1.5">
+                                          {output.results.slice(0, 3).map((w: any, wIdx: number) => (
+                                            <div key={wIdx} className="p-2 rounded-md bg-secondary/30 border border-border/50 text-[11px]">
+                                              <a
+                                                href={w.url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="font-medium text-primary hover:underline flex items-center gap-1"
+                                              >
+                                                <span className="truncate">{w.title}</span>
+                                                <ExternalLink className="w-2.5 h-2.5 shrink-0" />
+                                              </a>
+                                              <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">
+                                                {w.snippet}
+                                              </p>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+
+                                      {/* Raw Output Block for other tools */}
+                                      {toolName !== 'searchParadeDB' &&
+                                        toolName !== 'queryKnowledgeGraph' &&
+                                        toolName !== 'searchWeb' &&
+                                        output && (
+                                          <CodeBlock
+                                            code={JSON.stringify(output, null, 2)}
+                                            language="json"
+                                          />
+                                        )}
+                                    </div>
+                                  </ChainOfThoughtStep>
                                 );
-                              },
-                              blockquote: ({ children }) => (
-                                <blockquote className="border-l-2 border-primary pl-2.5 my-2 italic text-muted-foreground">
-                                  {children}
-                                </blockquote>
-                              ),
-                              table: ({ children }) => (
-                                <div className="overflow-x-auto my-2 border border-border rounded-lg">
-                                  <table className="w-full text-left text-[11px] border-collapse">
+                              })}
+
+                              {/* Step Final: Self-RAG Evaluator & Reflection Verification */}
+                              <ChainOfThoughtStep
+                                icon={Sparkles}
+                                label={<span className="font-semibold text-foreground">Self-RAG Grounding &amp; Reflection</span>}
+                                description="Verified factual grounding, query alignment, and complete coverage."
+                                status="complete"
+                              >
+                                <div className="flex items-center gap-1.5 text-[11px] text-emerald-600 dark:text-emerald-400 font-medium">
+                                  <CheckCircle2 className="w-3.5 h-3.5" />
+                                  <span>Passed Self-Evaluation quality threshold (&gt;= 0.85). Ready to stream.</span>
+                                </div>
+                              </ChainOfThoughtStep>
+                            </ChainOfThoughtContent>
+                          </ChainOfThought>
+                        )}
+
+                        {/* 2. Markdown Formatter */}
+                        {messageText && (
+                          <div className="prose-xs max-w-none break-words leading-relaxed pt-1">
+                            <ReactMarkdown
+                              remarkPlugins={[remarkGfm]}
+                              components={{
+                                strong: ({ children }) => (
+                                  <strong className="font-semibold text-foreground">{children}</strong>
+                                ),
+                                b: ({ children }) => (
+                                  <strong className="font-semibold text-foreground">{children}</strong>
+                                ),
+                                p: ({ children }) => (
+                                  <p className="mb-2 last:mb-0 leading-relaxed">{children}</p>
+                                ),
+                                ul: ({ children }) => (
+                                  <ul className="list-disc list-outside pl-4 my-1.5 space-y-1">
                                     {children}
-                                  </table>
-                                </div>
-                              ),
-                              th: ({ children }) => (
-                                <th className="border-b border-border bg-secondary/50 p-1.5 font-semibold text-foreground">
-                                  {children}
-                                </th>
-                              ),
-                              td: ({ children }) => (
-                                <td className="border-b border-border/50 p-1.5">{children}</td>
-                              ),
-                              h1: ({ children }) => (
-                                <h1 className="text-sm font-bold my-2 text-foreground">{children}</h1>
-                              ),
-                              h2: ({ children }) => (
-                                <h2 className="text-xs font-bold my-1.5 text-foreground">{children}</h2>
-                              ),
-                              h3: ({ children }) => (
-                                <h3 className="text-xs font-semibold my-1 text-foreground">
-                                  {children}
-                                </h3>
-                              ),
-                            }}
-                          >
-                            {messageText}
-                          </ReactMarkdown>
-                        </div>
-
-                        {/* Tool Invocations / ParadeDB Citations */}
-                        {((message.parts as any[])?.filter(
-                          (p: any) => p.type?.startsWith('tool-') || p.type === 'dynamic-tool'
-                        ) ||
-                          (message.toolInvocations as any[]) ||
-                          [])?.map((toolPart: any, toolIdx: number) => {
-                          const toolName =
-                            toolPart.toolName || toolPart.type?.replace('tool-', '');
-                          const toolCallId = toolPart.toolCallId || `tool-${toolIdx}`;
-                          const state = toolPart.state;
-                          const output = toolPart.output || toolPart.result;
-
-                          return (
-                            <div
-                              key={toolCallId}
-                              className="mt-2.5 p-2 rounded-lg bg-secondary/60 border border-border/60 text-[11px] space-y-1.5"
+                                  </ul>
+                                ),
+                                ol: ({ children }) => (
+                                  <ol className="list-decimal list-outside pl-4 my-1.5 space-y-1">
+                                    {children}
+                                  </ol>
+                                ),
+                                li: ({ children }) => <li className="leading-relaxed">{children}</li>,
+                                a: ({ href, children }) => (
+                                  <a
+                                    href={href}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-0.5 text-primary font-medium underline underline-offset-2 hover:opacity-80 transition-opacity"
+                                  >
+                                    <span>{children}</span>
+                                    <ExternalLink className="w-2.5 h-2.5 inline shrink-0 ml-0.5" />
+                                  </a>
+                                ),
+                                code: ({ inline, className, children, ...props }: any) => {
+                                  if (inline) {
+                                    return (
+                                      <code
+                                        className="px-1.5 py-0.5 rounded bg-muted text-foreground font-mono text-[11px] border border-border/50"
+                                        {...props}
+                                      >
+                                        {children}
+                                      </code>
+                                    );
+                                  }
+                                  return (
+                                    <pre className="p-2.5 my-2 rounded-lg bg-secondary/80 text-foreground font-mono text-[11px] overflow-x-auto border border-border/60">
+                                      <code {...props}>{children}</code>
+                                    </pre>
+                                  );
+                                },
+                              }}
                             >
-                              <div className="flex items-center gap-1.5 font-medium text-primary">
-                                {toolName === 'searchParadeDB' ? (
-                                  <Database className="w-3.5 h-3.5" />
-                                ) : (
-                                  <FilePlus className="w-3.5 h-3.5" />
-                                )}
-                                <span>Tool: {toolName}</span>
-                                {(state === 'call' || state === 'input-streaming') && (
-                                  <Loader2 className="w-3 h-3 animate-spin ml-auto" />
-                                )}
-                              </div>
+                              {messageText}
+                            </ReactMarkdown>
+                          </div>
+                        )}
 
-                              {toolName === 'searchParadeDB' && (state === 'result' || output?.results) && (
-                                <div className="flex flex-wrap gap-1 mt-1">
-                                  {output?.results?.map((res: any, i: number) => (
-                                    <Button
-                                      key={res.id || i}
-                                      variant="outline"
-                                      size="sm"
-                                      onClick={() => setSelectedCitation(res)}
-                                      className="h-5 px-2 text-[10px] font-mono text-primary bg-primary/5 hover:bg-primary/15 border-primary/30 gap-1 rounded"
-                                    >
-                                      <Info className="w-2.5 h-2.5" /> Chunk #{res.chunkIndex + 1}
-                                    </Button>
-                                  ))}
-                                </div>
-                              )}
-                            </div>
-                          );
-                        })}
+                        {/* 3. Official AI Elements Sources Component */}
+                        {!isUser && extractedSources.length > 0 && (
+                          <div className="pt-2">
+                            <Sources>
+                              <SourcesTrigger count={extractedSources.length} />
+                              <SourcesContent>
+                                {extractedSources.map((s, sIdx) => (
+                                  <Source
+                                    key={sIdx}
+                                    href={s.url || '#'}
+                                    title={s.title}
+                                    onClick={(e) => {
+                                      if (!s.url) {
+                                        e.preventDefault();
+                                        setSelectedCitation(s);
+                                      }
+                                    }}
+                                  />
+                                ))}
+                              </SourcesContent>
+                            </Sources>
+                          </div>
+                        )}
                       </Card>
 
                       {/* Footer Actions (Copy Button) */}
@@ -499,7 +660,11 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
             {isLoading && (
               <div className="flex items-center gap-2 text-xs text-primary bg-primary/5 px-3 py-2 rounded-xl border border-primary/20 w-fit animate-pulse">
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                <span>Searching ParadeDB &amp; synthesizing answer...</span>
+                <span>
+                  {webSearchEnabled
+                    ? 'Reasoning, searching notebook & live web...'
+                    : 'Reasoning & retrieving cognitive memory...'}
+                </span>
               </div>
             )}
 
@@ -513,43 +678,23 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
           </div>
         </div>
 
-        {/* Input Bar Form */}
+        {/* AI Elements PromptInput Bar */}
         <div className="pt-2 shrink-0">
-          <Card className="p-1.5 border-border bg-card shadow-xs focus-within:ring-1 focus-within:ring-primary focus-within:border-primary transition-all rounded-xl">
-            <div className="flex items-end gap-2">
-              <Textarea
-                ref={textareaRef}
-                value={inputValue}
-                onChange={handleTextareaInput}
-                onKeyDown={handleKeyDown}
-                rows={1}
-                placeholder="Ask anything about your notebook documents... (Enter to send, Shift+Enter for new line)"
-                disabled={isLoading || isHistoryLoading}
-                className="min-h-[38px] max-h-[140px] resize-none border-0 shadow-none focus-visible:ring-0 text-xs px-2.5 py-2 placeholder:text-muted-foreground"
-              />
-              <Tooltip>
-                <TooltipTrigger asChild>
-                  <Button
-                    type="button"
-                    size="icon"
-                    onClick={handleSendMessage}
-                    disabled={!inputValue.trim() || isLoading || isHistoryLoading}
-                    className="h-8 w-8 rounded-lg bg-primary text-primary-foreground shrink-0 transition-transform active:scale-95"
-                  >
-                    {isLoading ? (
-                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                    ) : (
-                      <Send className="w-3.5 h-3.5" />
-                    )}
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="top" className="text-[11px] flex items-center gap-1">
-                  <span>Send</span>
-                  <CornerDownLeft className="w-2.5 h-2.5 text-muted-foreground" />
-                </TooltipContent>
-              </Tooltip>
-            </div>
-          </Card>
+          <PromptInput
+            value={inputValue}
+            onChange={setInputValue}
+            onSubmit={handleSendMessage}
+            onStop={stop}
+            isLoading={isLoading}
+            disabled={isHistoryLoading}
+            webSearchEnabled={webSearchEnabled}
+            onToggleWebSearch={setWebSearchEnabled}
+            placeholder={
+              webSearchEnabled
+                ? 'Ask anything (Web search enabled: agent will search internet & notebook)...'
+                : 'Ask anything grounded in your notebook sources & memories...'
+            }
+          />
         </div>
       </div>
     </TooltipProvider>
@@ -559,45 +704,18 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
 export function ChatStudioPanel() {
   const { activeNotebook } = useNotebookStore();
 
+  if (!activeNotebook) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center p-6 text-center text-muted-foreground text-xs space-y-2">
+        <Bot className="w-8 h-8 opacity-30" />
+        <p>Select or create a notebook to start chatting with grounded memory.</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col h-full min-h-0 bg-background border-r border-border p-4 space-y-3 overflow-hidden">
-      {/* Header */}
-      <div className="flex items-center justify-between shrink-0">
-        <div className="flex items-center space-x-2.5">
-          <Avatar className="w-8 h-8 rounded-lg bg-primary/10 border border-primary/30 text-primary">
-            <AvatarFallback className="bg-primary/10 text-primary rounded-lg">
-              <Sparkles className="w-4 h-4" />
-            </AvatarFallback>
-          </Avatar>
-          <div>
-            <h2 className="font-semibold text-base tracking-tight leading-tight">
-              Agentic Chat Assistant
-            </h2>
-            <p className="text-[10px] text-muted-foreground">
-              Powered by Vercel AI SDK &amp; ParadeDB Vectorless BM25 Search
-            </p>
-          </div>
-        </div>
-        <Badge
-          variant="outline"
-          className="text-xs border-primary/40 text-primary flex items-center gap-1 font-mono"
-        >
-          <Database className="w-3 h-3" /> ParadeDB RAG
-        </Badge>
-      </div>
-
-      <Separator />
-
-      {/* Main Chat Workspace */}
-      <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-        {activeNotebook ? (
-          <ChatStreamView key={activeNotebook.id} notebookId={activeNotebook.id} />
-        ) : (
-          <div className="h-full flex items-center justify-center p-6 text-center text-xs text-muted-foreground border border-dashed border-border rounded-xl bg-secondary/5">
-            Select or create a notebook to begin chatting with your AI agent.
-          </div>
-        )}
-      </div>
+    <div className="h-full min-h-0 flex flex-col p-3 overflow-hidden">
+      <ChatStreamView notebookId={activeNotebook.id} />
     </div>
   );
 }

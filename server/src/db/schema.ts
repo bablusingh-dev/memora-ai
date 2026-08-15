@@ -1,4 +1,4 @@
-import { pgTable, uuid, text, timestamp, integer, jsonb } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, integer, jsonb, boolean } from 'drizzle-orm/pg-core';
 
 export const users = pgTable('users', {
   id: text('id').primaryKey(), // Clerk User ID e.g. user_2P3...
@@ -45,6 +45,7 @@ export const documentChunks = pgTable('document_chunks', {
   content: text('content').notNull(),
   chunkIndex: integer('chunk_index').notNull(),
   metadata: jsonb('metadata'),
+  isGraphIndexed: boolean('is_graph_indexed').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
@@ -71,6 +72,7 @@ export const chatMessages = pgTable('chat_messages', {
   role: text('role').notNull(), // 'user' | 'assistant'
   content: text('content').notNull(),
   parts: jsonb('parts'), // tool invocations, citations, structured parts
+  isGraphIndexed: boolean('is_graph_indexed').default(false).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 
