@@ -10,14 +10,32 @@ import { AddSourceModal } from '@/components/notebook/AddSourceModal';
 import { Brain, Settings, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { SignInButton, UserButton, useAuth } from '@clerk/nextjs';
-import { setAuthToken } from '@/lib/api-client';
+import { setAuthToken, setTokenGetter } from '@/lib/api-client';
 import { useNotebookStore } from '@/store/useNotebookStore';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 const isValidClerkKey =
   publishableKey &&
   publishableKey.startsWith('pk_') &&
   !publishableKey.includes('placeholder');
+
+function ClerkAuthSync() {
+  const { getToken, isSignedIn, isLoaded } = useAuth();
+
+  useEffect(() => {
+    if (isLoaded) {
+      if (isSignedIn) {
+        setTokenGetter(getToken);
+      } else {
+        setTokenGetter(null);
+        setAuthToken(null);
+      }
+    }
+  }, [isLoaded, isSignedIn, getToken]);
+
+  return null;
+}
 
 export default function NotebookDashboardPage() {
   let getToken: any = () => Promise.resolve(null);
@@ -38,9 +56,11 @@ export default function NotebookDashboardPage() {
   useEffect(() => {
     async function syncTokenAndFetch() {
       if (isValidClerkKey && isSignedIn) {
+        setTokenGetter(getToken);
         const token = await getToken();
         setAuthToken(token);
       } else {
+        setTokenGetter(null);
         setAuthToken(null);
       }
 
@@ -55,6 +75,7 @@ export default function NotebookDashboardPage() {
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
+      {isValidClerkKey && <ClerkAuthSync />}
       <CreateNotebookModal />
       <AddSourceModal />
 
@@ -75,6 +96,7 @@ export default function NotebookDashboardPage() {
         </div>
 
         <div className="flex items-center space-x-2">
+          <ThemeToggle />
           <Button variant="ghost" size="icon" className="h-8 w-8">
             <HelpCircle className="w-4 h-4" />
           </Button>
@@ -107,22 +129,23 @@ export default function NotebookDashboardPage() {
       </header>
 
       {/* Main 3-Column Responsive Grid */}
-      <main className="flex-1 grid grid-cols-1 md:grid-cols-12 overflow-hidden">
+      <main className="flex-1 min-h-0 grid grid-cols-1 md:grid-cols-12 overflow-hidden">
         {/* Left Column: Sources */}
-        <section className="md:col-span-3 h-full overflow-hidden">
+        <section className="md:col-span-3 h-full min-h-0 overflow-hidden flex flex-col">
           <SourcesPanel />
         </section>
 
         {/* Center Column: Chat & Studio */}
-        <section className="md:col-span-6 h-full overflow-hidden">
+        <section className="md:col-span-6 h-full min-h-0 overflow-hidden flex flex-col">
           <ChatStudioPanel />
         </section>
 
         {/* Right Column: Audio Overview & Studio */}
-        <section className="md:col-span-3 h-full overflow-hidden">
+        <section className="md:col-span-3 h-full min-h-0 overflow-hidden flex flex-col">
           <AudioOverviewPanel />
         </section>
       </main>
     </div>
   );
 }
+

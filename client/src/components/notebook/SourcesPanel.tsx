@@ -27,7 +27,7 @@ export function SourcesPanel() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-card/60 backdrop-blur border-r border-border p-4 space-y-4">
+    <div className="flex flex-col h-full min-h-0 bg-card/60 backdrop-blur border-r border-border p-4 space-y-4">
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           <FileText className="w-5 h-5 text-primary" />

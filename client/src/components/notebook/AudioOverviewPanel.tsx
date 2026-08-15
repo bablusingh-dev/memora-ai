@@ -50,7 +50,7 @@ export function AudioOverviewPanel() {
   };
 
   return (
-    <div className="flex flex-col h-full bg-card/60 backdrop-blur border-l border-border p-4 space-y-4">
+    <div className="flex flex-col h-full min-h-0 bg-card/60 backdrop-blur border-l border-border p-4 space-y-4">
       {/* Header */}
       <div className="flex items-center justify-between shrink-0">
         <div className="flex items-center space-x-2">
