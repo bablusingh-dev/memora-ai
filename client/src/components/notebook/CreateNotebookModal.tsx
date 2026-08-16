@@ -12,7 +12,7 @@ import {
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useNotebookStore } from '@/store/useNotebookStore';
-import { Sparkles, Loader2 } from 'lucide-react';
+import { Loader2, Sparkles, FolderPlus } from 'lucide-react';
 
 export function CreateNotebookModal() {
   const { isCreateModalOpen, setCreateModalOpen, createNotebook, isLoading } = useNotebookStore();
@@ -23,7 +23,7 @@ export function CreateNotebookModal() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim()) {
-      setErrorMsg('Title is required');
+      setErrorMsg('Workspace title is required');
       return;
     }
     setErrorMsg('');
@@ -33,74 +33,89 @@ export function CreateNotebookModal() {
       setTitle('');
       setDescription('');
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to create notebook');
+      setErrorMsg(err.message || 'Failed to create workspace');
     }
   };
 
   return (
     <Dialog open={isCreateModalOpen} onOpenChange={setCreateModalOpen}>
-      <DialogContent className="sm:max-w-[460px] bg-white border border-slate-200 shadow-2xl text-slate-900">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-2 text-base font-bold text-slate-900">
-            <Sparkles className="w-5 h-5 text-primary" />
-            Create New Notebook
-          </DialogTitle>
-          <DialogDescription className="text-xs text-slate-500">
-            Give your notebook a title and optional topic description to organize your research sources.
-          </DialogDescription>
+      <DialogContent className="sm:max-w-[480px] bg-slate-100 dark:bg-zinc-900 border-0 ring-1 ring-black/5 dark:ring-white/10 shadow-2xl dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.95)] text-foreground rounded-3xl p-5 space-y-3">
+        {/* Header Section Card */}
+        <DialogHeader className="bg-white dark:bg-zinc-950 p-4 rounded-2xl shadow-2xs space-y-2">
+          <div className="flex items-center gap-2.5">
+            <div className="p-2.5 rounded-2xl bg-primary/10 text-primary">
+              <FolderPlus className="w-5 h-5" />
+            </div>
+            <div>
+              <DialogTitle className="text-base font-bold text-foreground tracking-tight">
+                Create New Workspace
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+                Organize documents, research papers, notes, and AI audio overviews.
+              </DialogDescription>
+            </div>
+          </div>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-4 py-2">
+        {/* Input Form Section Card */}
+        <form onSubmit={handleSubmit} className="bg-white dark:bg-zinc-950 p-4 rounded-2xl shadow-2xs space-y-3.5">
           {errorMsg && (
-            <div className="p-2.5 rounded-lg bg-destructive/10 text-destructive text-xs border border-destructive/20 font-medium">
+            <div className="p-3 rounded-2xl bg-destructive/10 border-0 text-destructive text-xs font-medium">
               {errorMsg}
             </div>
           )}
 
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-800">Notebook Title *</label>
+            <label className="text-xs font-semibold text-foreground flex items-center justify-between">
+              <span>Workspace Title <span className="text-primary">*</span></span>
+              <span className="text-[10px] text-muted-foreground font-normal">e.g. Quantum Computing</span>
+            </label>
             <Input
               placeholder="e.g. Deep Learning & RAG Architectures"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               disabled={isLoading}
-              className="bg-slate-50 border border-slate-300 text-slate-900 placeholder:text-slate-400 font-medium focus:bg-white focus:border-primary text-xs h-10"
+              className="bg-slate-100 dark:bg-zinc-800/90 border-0 text-foreground placeholder:text-muted-foreground font-medium text-xs h-10 rounded-2xl focus-visible:ring-1 focus-visible:ring-primary shadow-inner"
               autoFocus
             />
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-xs font-semibold text-slate-800">Description (Optional)</label>
+            <label className="text-xs font-semibold text-foreground">Topic Description (Optional)</label>
             <Input
               placeholder="e.g. Research notes on vectorless search vs dense embeddings"
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               disabled={isLoading}
-              className="bg-slate-50 border border-slate-300 text-slate-900 placeholder:text-slate-400 font-medium focus:bg-white focus:border-primary text-xs h-10"
+              className="bg-slate-100 dark:bg-zinc-800/90 border-0 text-foreground placeholder:text-muted-foreground font-medium text-xs h-10 rounded-2xl focus-visible:ring-1 focus-visible:ring-primary shadow-inner"
             />
           </div>
 
-          <DialogFooter className="pt-3 flex items-center justify-end gap-2">
+          <DialogFooter className="pt-2 flex items-center justify-end gap-2">
             <Button
               type="button"
-              variant="outline"
+              variant="ghost"
               onClick={() => setCreateModalOpen(false)}
               disabled={isLoading}
-              className="border border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold h-9 px-4"
+              className="text-muted-foreground hover:text-foreground text-xs font-semibold h-9 px-4 rounded-xl"
             >
               Cancel
             </Button>
             <Button
               type="submit"
-              disabled={isLoading}
-              className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold h-9 px-5 shadow-sm"
+              disabled={isLoading || !title.trim()}
+              className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs font-semibold h-9 px-5 rounded-xl border-0 shadow-xs gap-1.5"
             >
               {isLoading ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Creating...
+                  <Loader2 className="w-3.5 h-3.5" />
+                  <span>Creating...</span>
                 </>
               ) : (
-                'Create Notebook'
+                <>
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Create Workspace</span>
+                </>
               )}
             </Button>
           </DialogFooter>

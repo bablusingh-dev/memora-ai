@@ -69,7 +69,7 @@ export type SourceProps = ComponentProps<'a'> & {
 export const Source = ({ href, title, isWeb, children, className, ...props }: SourceProps) => (
   <a
     className={cn(
-      'flex items-center justify-between gap-2 p-2 rounded-xl border border-border/70 bg-card hover:bg-secondary/40 hover:border-primary/40 transition-all text-foreground text-xs shadow-2xs group',
+      'flex items-center justify-between gap-2 p-2 rounded-xl bg-card hover:bg-secondary/40 transition-all text-foreground text-xs shadow-2xs group border-0',
       className
     )}
     href={href}

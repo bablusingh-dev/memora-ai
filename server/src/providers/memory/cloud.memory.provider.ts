@@ -183,7 +183,7 @@ export class CloudMemoryProvider implements IMemoryProvider {
     if (!this.apiKey || this.apiKey.includes('placeholder')) {
       throw new Error('MEM0_API_KEY is not set in .env. Please add MEM0_API_KEY=m0-your-api-key-here to use Mem0 Cloud memory.');
     }
-    const res = await fetch(`${this.baseUrl}/memories/?limit=1`, {
+    const res = await fetch(`${this.baseUrl}/memories/?user_id=system_ping&limit=1`, {
       method: 'GET',
       headers: this.getHeaders(),
       signal: AbortSignal.timeout(5000),

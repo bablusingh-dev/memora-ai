@@ -21,8 +21,8 @@ export function CodeBlock({ code, language = 'json', className }: CodeBlockProps
   };
 
   return (
-    <div className={cn('relative group rounded-md border border-border/50 bg-secondary/30 text-xs font-mono', className)}>
-      <div className="flex items-center justify-between px-3 py-1.5 border-b border-border/40 bg-secondary/50 text-[11px] text-muted-foreground">
+    <div className={cn('relative group rounded-xl bg-secondary/30 text-xs font-mono border-0', className)}>
+      <div className="flex items-center justify-between px-3 py-1.5 bg-secondary/50 text-[11px] text-muted-foreground border-0">
         <span className="uppercase">{language}</span>
         <Button
           type="button"

@@ -84,7 +84,7 @@ export const ChainOfThoughtHeader = memo(
     return (
       <CollapsibleTrigger
         className={cn(
-          "flex w-full items-center gap-2 text-muted-foreground text-xs py-1.5 px-2.5 rounded-lg bg-secondary/20 hover:bg-secondary/40 border border-border/50 transition-colors hover:text-foreground cursor-pointer select-none",
+          "flex w-full items-center gap-2 text-muted-foreground text-xs py-1.5 px-2.5 rounded-xl bg-secondary/30 hover:bg-secondary/60 border-0 transition-colors hover:text-foreground cursor-pointer select-none",
           className
         )}
         {...props}
@@ -136,10 +136,10 @@ export const ChainOfThoughtStep = memo(
       {...props}
     >
       <div className="relative mt-0.5 shrink-0 flex flex-col items-center">
-        <div className="w-5 h-5 rounded-full bg-secondary/80 border border-border flex items-center justify-center">
+        <div className="w-5 h-5 rounded-full bg-secondary/80 border-0 flex items-center justify-center">
           <Icon className="size-3 text-primary" />
         </div>
-        <div className="flex-1 w-px bg-border/60 mt-1 min-h-[16px]" />
+        <div className="flex-1 w-px bg-muted/40 mt-1 min-h-[16px]" />
       </div>
       <div className="flex-1 space-y-1.5 overflow-hidden pt-0.5">
         <div>{label}</div>
@@ -168,7 +168,7 @@ export type ChainOfThoughtSearchResultProps = ComponentProps<typeof Badge>;
 export const ChainOfThoughtSearchResult = memo(
   ({ className, children, ...props }: ChainOfThoughtSearchResultProps) => (
     <Badge
-      className={cn("gap-1 px-2 py-0.5 font-normal text-[11px] bg-secondary/50 hover:bg-secondary border-border/60 transition-colors", className)}
+      className={cn("gap-1 px-2 py-0.5 font-normal text-[11px] bg-secondary/50 hover:bg-secondary border-0 transition-colors", className)}
       variant="secondary"
       {...props}
     >
@@ -186,7 +186,7 @@ export const ChainOfThoughtContent = memo(
     return (
       <CollapsibleContent
         className={cn(
-          "mt-2 space-y-2 p-3 bg-secondary/15 rounded-xl border border-border/60 text-foreground overflow-hidden",
+          "mt-2 space-y-2 p-3 bg-secondary/20 rounded-2xl border-0 text-foreground overflow-hidden",
           className
         )}
         {...props}
@@ -204,7 +204,7 @@ export type ChainOfThoughtImageProps = ComponentProps<"div"> & {
 export const ChainOfThoughtImage = memo(
   ({ className, children, caption, ...props }: ChainOfThoughtImageProps) => (
     <div className={cn("mt-2 space-y-2", className)} {...props}>
-      <div className="relative flex max-h-[22rem] items-center justify-center overflow-hidden rounded-lg bg-muted p-3">
+      <div className="relative flex max-h-[22rem] items-center justify-center overflow-hidden rounded-xl bg-muted p-3">
         {children}
       </div>
       {caption && <p className="text-muted-foreground text-xs">{caption}</p>}

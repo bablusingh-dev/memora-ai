@@ -12,9 +12,9 @@ async function bootstrap() {
   // 1. ParadeDB / PostgreSQL
   try {
     await connectDB();
-    logger.info('[Startup] ✅ ParadeDB (PostgreSQL) connected');
+    logger.info('[Startup] [OK] ParadeDB (PostgreSQL) connected');
   } catch (err) {
-    logger.fatal({ err }, '[Startup] ❌ ParadeDB connection failed — server cannot start');
+    logger.fatal({ err }, '[Startup] [FAIL] ParadeDB connection failed - server cannot start');
     process.exit(1);
   }
 
@@ -22,9 +22,9 @@ async function bootstrap() {
   try {
     const graph = GraphFactory.getProvider();
     await graph.connect();
-    logger.info('[Startup] ✅ Neo4j connected');
+    logger.info('[Startup] [OK] Neo4j connected');
   } catch (err) {
-    logger.fatal({ err }, '[Startup] ❌ Neo4j connection failed — server cannot start');
+    logger.fatal({ err }, '[Startup] [FAIL] Neo4j connection failed - server cannot start');
     process.exit(1);
   }
 
@@ -32,9 +32,9 @@ async function bootstrap() {
   try {
     const memory = MemoryFactory.getProvider();
     await memory.ping();
-    logger.info('[Startup] ✅ Mem0 memory service connected');
+    logger.info('[Startup] [OK] Mem0 memory service connected');
   } catch (err) {
-    logger.fatal({ err }, '[Startup] ❌ Mem0 connection failed — server cannot start');
+    logger.fatal({ err }, '[Startup] [FAIL] Mem0 connection failed - server cannot start');
     process.exit(1);
   }
 

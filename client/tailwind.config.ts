@@ -44,6 +44,10 @@ const config: Config = {
         input: 'var(--input)',
         ring: 'var(--ring)',
       },
+      fontFamily: {
+        sans: ['var(--font-sans)', 'system-ui', 'sans-serif'],
+        mono: ['var(--font-mono)', 'monospace'],
+      },
       borderRadius: {
         lg: 'var(--radius)',
         md: 'calc(var(--radius) - 2px)',
