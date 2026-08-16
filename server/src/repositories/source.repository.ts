@@ -1,6 +1,6 @@
 import { eq, and } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { sourceDocuments, documentChunks, notebooks } from '../db/schema.js';
+import { sourceDocuments, documentChunks } from '../db/schema.js';
 
 export type SourceDocument = typeof sourceDocuments.$inferSelect;
 export type NewSourceDocument = typeof sourceDocuments.$inferInsert;

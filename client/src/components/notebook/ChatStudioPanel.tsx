@@ -467,50 +467,76 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
                                         />
                                       )}
 
-                                      {/* ParadeDB Chunk Pills */}
+                                      {/* ParadeDB Chunk Previews */}
                                       {toolName === 'searchParadeDB' && output?.results && (
-                                        <ChainOfThoughtSearchResults>
-                                          {output.results.map((res: any, rIdx: number) => (
-                                            <ChainOfThoughtSearchResult key={res.id || rIdx}>
-                                              <button
-                                                type="button"
-                                                onClick={() => setSelectedCitation(res)}
-                                                className="flex items-center gap-1 hover:text-primary transition-colors"
+                                        <div className="space-y-2 mt-2">
+                                          <div className="text-[11px] font-medium text-foreground flex items-center justify-between">
+                                            <span>Retrieved {output.results.length} Chunks (Query: &ldquo;{output.query || input?.query}&rdquo;):</span>
+                                          </div>
+                                          <div className="space-y-1.5">
+                                            {output.results.map((res: any, rIdx: number) => (
+                                              <div
+                                                key={res.id || rIdx}
+                                                className="p-2.5 rounded-lg bg-secondary/30 border border-border/60 text-[11px] space-y-1"
                                               >
-                                                <Info className="w-2.5 h-2.5 text-primary" />
-                                                <span>Chunk #{res.chunkIndex != null ? res.chunkIndex + 1 : rIdx + 1}</span>
-                                                {res.bm25Score && (
-                                                  <span className="opacity-70 font-mono">
-                                                    ({res.bm25Score.toFixed(2)})
+                                                <div className="flex items-center justify-between font-mono text-[10px]">
+                                                  <span className="font-semibold text-primary">
+                                                    Chunk #{res.chunkIndex != null ? res.chunkIndex + 1 : rIdx + 1}
                                                   </span>
-                                                )}
-                                              </button>
-                                            </ChainOfThoughtSearchResult>
-                                          ))}
-                                        </ChainOfThoughtSearchResults>
+                                                  <Badge variant="outline" className="text-[9px] font-mono bg-primary/5 text-primary border-primary/20">
+                                                    BM25: {res.bm25Score ? res.bm25Score.toFixed(3) : '1.000'}
+                                                  </Badge>
+                                                </div>
+                                                <p className="text-muted-foreground text-[11px] leading-relaxed line-clamp-3">
+                                                  {res.content}
+                                                </p>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  onClick={() => setSelectedCitation(res)}
+                                                  className="h-5 px-1.5 text-[10px] text-primary hover:bg-primary/10 transition-colors"
+                                                >
+                                                  View Full Chunk Content
+                                                </Button>
+                                              </div>
+                                            ))}
+                                          </div>
+                                        </div>
                                       )}
 
                                       {/* Neo4j Graph Output */}
                                       {toolName === 'queryKnowledgeGraph' && output && (
-                                        <div className="text-[11px] font-mono text-muted-foreground bg-secondary/30 p-2 rounded-md space-y-1">
-                                          <div className="font-semibold text-foreground">
-                                            Traversed {output.entitiesFound ?? output.entities?.length ?? 0} Entities:
+                                        <div className="text-[11px] font-mono text-muted-foreground bg-secondary/30 p-2.5 rounded-lg border border-border/60 space-y-1.5 mt-2">
+                                          <div className="font-semibold text-foreground text-xs">
+                                            Neo4j Graph Traversed ({output.entitiesFound ?? output.entities?.length ?? 0} Entities):
                                           </div>
-                                          {output.relations?.slice(0, 3).map((rel: any, relIdx: number) => (
-                                            <div key={relIdx} className="flex items-center gap-1">
-                                              <span className="text-foreground">{rel.sourceEntity}</span>
-                                              <span className="text-primary font-bold">-[{rel.relationType}]-&gt;</span>
-                                              <span className="text-foreground">{rel.targetEntity}</span>
-                                            </div>
-                                          ))}
+                                          {output.relations && output.relations.length > 0 ? (
+                                            output.relations.map((rel: any, relIdx: number) => (
+                                              <div key={relIdx} className="p-1.5 rounded bg-background/50 border border-border/40 space-y-0.5">
+                                                <div className="flex items-center gap-1.5 font-semibold text-foreground">
+                                                  <span>{rel.sourceEntity}</span>
+                                                  <span className="text-primary font-bold">-[{rel.relationType}]-&gt;</span>
+                                                  <span>{rel.targetEntity}</span>
+                                                </div>
+                                                {rel.context && (
+                                                  <p className="text-[10px] text-muted-foreground font-sans">{rel.context}</p>
+                                                )}
+                                              </div>
+                                            ))
+                                          ) : (
+                                            <div className="text-[10px] text-muted-foreground">No direct relationships found for queried targets.</div>
+                                          )}
                                         </div>
                                       )}
 
                                       {/* Web Search Output */}
                                       {toolName === 'searchWeb' && output?.results && (
-                                        <div className="space-y-1.5">
-                                          {output.results.slice(0, 3).map((w: any, wIdx: number) => (
-                                            <div key={wIdx} className="p-2 rounded-md bg-secondary/30 border border-border/50 text-[11px]">
+                                        <div className="space-y-1.5 mt-2">
+                                          <div className="text-[11px] font-medium text-foreground">
+                                            Web Search Results for &ldquo;{output.query || input?.query}&rdquo;:
+                                          </div>
+                                          {output.results.map((w: any, wIdx: number) => (
+                                            <div key={wIdx} className="p-2.5 rounded-lg bg-secondary/30 border border-border/50 text-[11px]">
                                               <a
                                                 href={w.url}
                                                 target="_blank"
@@ -520,7 +546,7 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
                                                 <span className="truncate">{w.title}</span>
                                                 <ExternalLink className="w-2.5 h-2.5 shrink-0" />
                                               </a>
-                                              <p className="text-[10px] text-muted-foreground line-clamp-2 mt-0.5">
+                                              <p className="text-[10px] text-muted-foreground line-clamp-2 mt-1">
                                                 {w.snippet}
                                               </p>
                                             </div>

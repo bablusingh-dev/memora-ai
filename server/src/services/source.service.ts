@@ -67,7 +67,7 @@ export class SourceService {
       metadata: { originalName: file.originalname, mimeType: file.mimetype, size: file.size },
     });
 
-    await this.processChunksAndMarkReady(source.id, notebookId, rawText);
+    await this.processChunksAndMarkReady(source.id, notebookId, rawText, file.originalname, 'pdf');
 
     return {
       ...source,
@@ -95,7 +95,7 @@ export class SourceService {
       metadata: { originalUrl: url },
     });
 
-    await this.processChunksAndMarkReady(source.id, notebookId, markdown);
+    await this.processChunksAndMarkReady(source.id, notebookId, markdown, title, 'web');
 
     return {
       ...source,
@@ -123,7 +123,7 @@ export class SourceService {
       metadata: { originalUrl: url },
     });
 
-    await this.processChunksAndMarkReady(source.id, notebookId, text);
+    await this.processChunksAndMarkReady(source.id, notebookId, text, title, 'youtube');
 
     return {
       ...source,
@@ -148,7 +148,7 @@ export class SourceService {
       metadata: { characterCount: text.length },
     });
 
-    await this.processChunksAndMarkReady(source.id, notebookId, text);
+    await this.processChunksAndMarkReady(source.id, notebookId, text, title || 'Pasted Text Note', 'text');
 
     return {
       ...source,
@@ -168,13 +168,27 @@ export class SourceService {
     return true;
   }
 
-  private async processChunksAndMarkReady(sourceId: string, notebookId: string, rawText: string) {
-    const chunks = ChunkingService.createChunks(rawText);
+  private async processChunksAndMarkReady(
+    sourceId: string,
+    notebookId: string,
+    rawText: string,
+    title: string,
+    fileType: 'pdf' | 'web' | 'youtube' | 'text' = 'text'
+  ) {
+    const chunks = ChunkingService.createChunks(rawText, title, fileType);
     const dbChunks = chunks.map((c) => ({
       sourceId,
       notebookId,
-      content: c.content,
+      content: c.originalContent,
+      retrievalContent: c.retrievalContent,
       chunkIndex: c.chunkIndex,
+      heading: c.heading ?? null,
+      parentSection: c.parentSection ?? null,
+      sectionPath: c.sectionPath ?? null,
+      sourceType: c.sourceType,
+      tokenCount: c.tokenCount,
+      startPosition: c.startPosition,
+      endPosition: c.endPosition,
     }));
 
     await this.sourceRepo.insertChunks(dbChunks);

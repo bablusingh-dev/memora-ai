@@ -12,8 +12,7 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "lint": "tsc --noEmit",
-    "eval:harness": "tsx src/harness/eval-runner.ts",
-    "graph:backfill": "tsx src/scripts/backfill-graph.ts"
+    "eval:harness": "tsx src/harness/eval-runner.ts"
   },
   "keywords": [
     "notebook-llm",

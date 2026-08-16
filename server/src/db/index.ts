@@ -55,6 +55,7 @@ export async function connectDB() {
     client.release();
   } catch (error) {
     logger.error({ error }, 'Failed to connect to PostgreSQL / ParadeDB database');
+    throw error;
   }
 }
 

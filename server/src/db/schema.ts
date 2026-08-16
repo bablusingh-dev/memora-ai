@@ -43,6 +43,18 @@ export const documentChunks = pgTable('document_chunks', {
     .references(() => notebooks.id, { onDelete: 'cascade' })
     .notNull(),
   content: text('content').notNull(),
+  // Context-enriched version of content used for BM25 indexing and retrieval.
+  // Includes document title, section path, and the original content so that
+  // retrieved chunks are self-contained and understandable without surrounding context.
+  retrievalContent: text('retrieval_content'),
+  // Structural metadata populated by the structure-aware chunker
+  heading: text('heading'),
+  parentSection: text('parent_section'),
+  sectionPath: text('section_path'),
+  sourceType: text('source_type'), // 'markdown' | 'pdf' | 'transcript' | 'text'
+  tokenCount: integer('token_count'),
+  startPosition: integer('start_position'),
+  endPosition: integer('end_position'),
   chunkIndex: integer('chunk_index').notNull(),
   metadata: jsonb('metadata'),
   isGraphIndexed: boolean('is_graph_indexed').default(false).notNull(),

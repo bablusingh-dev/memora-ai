@@ -21,7 +21,7 @@ const envSchema = z.object({
 
   // Memory Provider Configuration
   MEMORY_PROVIDER: z.enum(['self_hosted', 'mem0_cloud']).default('self_hosted'),
-  MEM0_HOST: z.string().default('http://localhost:8000'),
+  MEM0_HOST: z.string().default('http://localhost:8888'),
   MEM0_API_KEY: z.string().optional(),
 
   // Graph Database (Neo4j) Configuration

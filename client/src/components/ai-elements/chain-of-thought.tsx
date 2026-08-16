@@ -47,7 +47,7 @@ export const ChainOfThought = memo(
     children,
     ...props
   }: ChainOfThoughtProps) => {
-    const [isOpen, setIsOpen] = useControllableState({
+    const [isOpen = false, setIsOpen] = useControllableState({
       defaultProp: defaultOpen,
       onChange: onOpenChange,
       prop: open,
@@ -60,9 +60,14 @@ export const ChainOfThought = memo(
 
     return (
       <ChainOfThoughtContext.Provider value={chainOfThoughtContext}>
-        <div className={cn("not-prose w-full space-y-4", className)} {...props}>
+        <Collapsible
+          open={isOpen}
+          onOpenChange={setIsOpen}
+          className={cn("not-prose w-full space-y-2", className)}
+          {...props}
+        >
           {children}
-        </div>
+        </Collapsible>
       </ChainOfThoughtContext.Provider>
     );
   }
@@ -74,29 +79,27 @@ export type ChainOfThoughtHeaderProps = ComponentProps<
 
 export const ChainOfThoughtHeader = memo(
   ({ className, children, ...props }: ChainOfThoughtHeaderProps) => {
-    const { isOpen, setIsOpen } = useChainOfThought();
+    const { isOpen } = useChainOfThought();
 
     return (
-      <Collapsible onOpenChange={setIsOpen} open={isOpen}>
-        <CollapsibleTrigger
+      <CollapsibleTrigger
+        className={cn(
+          "flex w-full items-center gap-2 text-muted-foreground text-xs py-1.5 px-2.5 rounded-lg bg-secondary/20 hover:bg-secondary/40 border border-border/50 transition-colors hover:text-foreground cursor-pointer select-none",
+          className
+        )}
+        {...props}
+      >
+        <BrainIcon className="size-3.5 text-primary shrink-0" />
+        <span className="flex-1 text-left font-medium">
+          {children ?? "Thought & Execution Timeline"}
+        </span>
+        <ChevronDownIcon
           className={cn(
-            "flex w-full items-center gap-2 text-muted-foreground text-sm transition-colors hover:text-foreground",
-            className
+            "size-3.5 transition-transform duration-200 shrink-0",
+            isOpen ? "rotate-180" : "rotate-0"
           )}
-          {...props}
-        >
-          <BrainIcon className="size-4" />
-          <span className="flex-1 text-left">
-            {children ?? "Chain of Thought"}
-          </span>
-          <ChevronDownIcon
-            className={cn(
-              "size-4 transition-transform",
-              isOpen ? "rotate-180" : "rotate-0"
-            )}
-          />
-        </CollapsibleTrigger>
-      </Collapsible>
+        />
+      </CollapsibleTrigger>
     );
   }
 );
@@ -109,9 +112,9 @@ export type ChainOfThoughtStepProps = ComponentProps<"div"> & {
 };
 
 const stepStatusStyles = {
-  active: "text-foreground",
-  complete: "text-muted-foreground",
-  pending: "text-muted-foreground/50",
+  active: "text-foreground font-medium",
+  complete: "text-foreground/90",
+  pending: "text-muted-foreground/60",
 };
 
 export const ChainOfThoughtStep = memo(
@@ -126,21 +129,22 @@ export const ChainOfThoughtStep = memo(
   }: ChainOfThoughtStepProps) => (
     <div
       className={cn(
-        "flex gap-2 text-sm",
+        "flex gap-2.5 text-xs py-1.5",
         stepStatusStyles[status],
-        "fade-in-0 slide-in-from-top-2 animate-in",
         className
       )}
       {...props}
     >
-      <div className="relative mt-0.5">
-        <Icon className="size-4" />
-        <div className="absolute top-7 bottom-0 left-1/2 -mx-px w-px bg-border" />
+      <div className="relative mt-0.5 shrink-0 flex flex-col items-center">
+        <div className="w-5 h-5 rounded-full bg-secondary/80 border border-border flex items-center justify-center">
+          <Icon className="size-3 text-primary" />
+        </div>
+        <div className="flex-1 w-px bg-border/60 mt-1 min-h-[16px]" />
       </div>
-      <div className="flex-1 space-y-2 overflow-hidden">
+      <div className="flex-1 space-y-1.5 overflow-hidden pt-0.5">
         <div>{label}</div>
         {description && (
-          <div className="text-muted-foreground text-xs">{description}</div>
+          <div className="text-muted-foreground text-[11px] leading-relaxed">{description}</div>
         )}
         {children}
       </div>
@@ -153,7 +157,7 @@ export type ChainOfThoughtSearchResultsProps = ComponentProps<"div">;
 export const ChainOfThoughtSearchResults = memo(
   ({ className, ...props }: ChainOfThoughtSearchResultsProps) => (
     <div
-      className={cn("flex flex-wrap items-center gap-2", className)}
+      className={cn("flex flex-wrap items-center gap-1.5 mt-1.5", className)}
       {...props}
     />
   )
@@ -164,7 +168,7 @@ export type ChainOfThoughtSearchResultProps = ComponentProps<typeof Badge>;
 export const ChainOfThoughtSearchResult = memo(
   ({ className, children, ...props }: ChainOfThoughtSearchResultProps) => (
     <Badge
-      className={cn("gap-1 px-2 py-0.5 font-normal text-xs", className)}
+      className={cn("gap-1 px-2 py-0.5 font-normal text-[11px] bg-secondary/50 hover:bg-secondary border-border/60 transition-colors", className)}
       variant="secondary"
       {...props}
     >
@@ -179,21 +183,16 @@ export type ChainOfThoughtContentProps = ComponentProps<
 
 export const ChainOfThoughtContent = memo(
   ({ className, children, ...props }: ChainOfThoughtContentProps) => {
-    const { isOpen } = useChainOfThought();
-
     return (
-      <Collapsible open={isOpen}>
-        <CollapsibleContent
-          className={cn(
-            "mt-2 space-y-3",
-            "data-[state=closed]:fade-out-0 data-[state=closed]:slide-out-to-top-2 data-[state=open]:slide-in-from-top-2 text-popover-foreground outline-none data-[state=closed]:animate-out data-[state=open]:animate-in",
-            className
-          )}
-          {...props}
-        >
-          {children}
-        </CollapsibleContent>
-      </Collapsible>
+      <CollapsibleContent
+        className={cn(
+          "mt-2 space-y-2 p-3 bg-secondary/15 rounded-xl border border-border/60 text-foreground overflow-hidden",
+          className
+        )}
+        {...props}
+      >
+        {children}
+      </CollapsibleContent>
     );
   }
 );

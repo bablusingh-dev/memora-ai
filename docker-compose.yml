@@ -39,7 +39,52 @@ services:
       timeout: 5s
       retries: 5
 
+  # Mem0 Postgres: Dedicated pgvector database used internally by the Mem0 server
+  mem0_postgres:
+    image: pgvector/pgvector:pg17
+    container_name: memora_mem0_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: mem0postgrespassword
+      POSTGRES_DB: mem0_db
+    volumes:
+      - mem0_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d mem0_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Mem0 OSS: Self-hosted semantic memory server (built from official source)
+  # Setup: git clone https://github.com/mem0ai/mem0 && cd mem0/server && cp .env.example .env
+  # Then reference the cloned path via MEM0_BUILD_CONTEXT below, or run: make bootstrap
+  mem0:
+    image: mem0ai/mem0-server:latest
+    container_name: memora_mem0
+    restart: unless-stopped
+    ports:
+      - "8888:8888"
+    environment:
+      - PORT=8888
+      - DATABASE_URL=postgresql://postgres:mem0postgrespassword@mem0_postgres:5432/mem0_db
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - JWT_SECRET=${MEM0_JWT_SECRET:-mem0_local_jwt_secret_change_in_production}
+      - AUTH_DISABLED=true   # Safe for local dev; set to false and use API keys in production
+      - MEM0_TELEMETRY=false
+      - DASHBOARD_URL=http://localhost:3000
+      - APP_DB_NAME=mem0_app
+    depends_on:
+      mem0_postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q --spider http://localhost:8888/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
 volumes:
   paradedb_data:
   neo4j_data:
-
+  mem0_postgres_data:

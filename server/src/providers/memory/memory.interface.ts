@@ -58,4 +58,10 @@ export interface IMemoryProvider {
    * Reset / clear all memories for a specific user
    */
   reset(userId: string): Promise<boolean>;
+
+  /**
+   * Verify that the memory backend is reachable.
+   * Throws if the service is down.
+   */
+  ping(): Promise<void>;
 }
