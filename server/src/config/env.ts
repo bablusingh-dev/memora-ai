@@ -30,11 +30,6 @@ const envSchema = z.object({
   NEO4J_USER: z.string().default('neo4j'),
   NEO4J_PASSWORD: z.string().default('memora_graph_password'),
 
-  // Reranker Configuration
-  RERANKER_PROVIDER: z.enum(['self_hosted', 'cohere_api']).default('self_hosted'),
-  COHERE_API_KEY: z.string().optional(),
-  RERANKER_MODEL: z.string().default('bge-reranker-base'),
-
   // Evaluation & Reflection Loop Configuration
   EVAL_MAX_RETRIES: z.coerce.number().default(3),
   EVAL_CONFIDENCE_THRESHOLD: z.coerce.number().default(0.85),

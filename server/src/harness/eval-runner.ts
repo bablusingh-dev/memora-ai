@@ -4,7 +4,6 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { generateText } from 'ai';
 import { env } from '../config/env.js';
 import { GoldenTestCase, EvalTestCaseResult, EvalSuiteReport } from './harness.types.js';
-import { RerankFactory } from '../providers/reranker/rerank.factory.js';
 import { RuntimeEvaluatorService } from '../services/eval/runtime-evaluator.service.js';
 import { logger } from '../utils/logger.js';
 
@@ -22,7 +21,6 @@ async function runEvaluationSuite() {
   const rawData = fs.readFileSync(datasetPath, 'utf-8');
   const testCases: GoldenTestCase[] = JSON.parse(rawData);
 
-  const rerankProvider = RerankFactory.getProvider();
   const evaluatorService = new RuntimeEvaluatorService();
 
   const results: EvalTestCaseResult[] = [];
@@ -69,9 +67,8 @@ async function runEvaluationSuite() {
       );
     }
 
-    // 2. Rerank candidates against the query
-    const ranked = await rerankProvider.rerank(tc.query, candidates, 5);
-    const contextString = ranked.map((r) => r.document.text).join('\n');
+    // 2. Build context string directly from retrieved candidates
+    const contextString = candidates.map((c) => c.text).join('\n');
 
     // 3. Draft response grounded in top context & instructions
     let candidateDraft = '';
@@ -86,10 +83,10 @@ async function runEvaluationSuite() {
         });
         candidateDraft = text;
       } catch (e) {
-        candidateDraft = `Based on our verified memory records:\n${ranked.map((r) => `- ${r.document.text}`).join('\n')}\nRelevant facts: ${tc.expectedKeyTerms.join(', ')}`;
+        candidateDraft = `Based on our verified memory records:\n${candidates.map((c) => `- ${c.text}`).join('\n')}\nRelevant facts: ${tc.expectedKeyTerms.join(', ')}`;
       }
     } else {
-      candidateDraft = `Based on our verified memory records:\n${ranked.map((r) => `- ${r.document.text}`).join('\n')}\nRelevant facts: ${tc.expectedKeyTerms.join(', ')}`;
+      candidateDraft = `Based on our verified memory records:\n${candidates.map((c) => `- ${c.text}`).join('\n')}\nRelevant facts: ${tc.expectedKeyTerms.join(', ')}`;
     }
 
     // 4. Runtime Evaluator Loop

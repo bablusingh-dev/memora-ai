@@ -6,7 +6,7 @@ import { NotebookRepository } from '../repositories/notebook.repository.js';
 import { ChatRepository } from '../repositories/chat.repository.js';
 import { MemoryCoordinatorService } from './memory/memory-coordinator.service.js';
 import { MemoryExtractorService } from './memory/memory-extractor.service.js';
-import { RerankService } from './rerank.service.js';
+import { ContextBuilderService } from './context-builder.service.js';
 import { GraphFactory } from '../providers/graph/graph.factory.js';
 import { MemoryFactory } from '../providers/memory/memory.factory.js';
 import { FirecrawlService } from './firecrawl.service.js';
@@ -22,7 +22,7 @@ export class AgentService {
   private chatRepo: ChatRepository;
   private memoryCoordinator: MemoryCoordinatorService;
   private memoryExtractor: MemoryExtractorService;
-  private rerankService: RerankService;
+  private contextBuilder: ContextBuilderService;
   private firecrawlService: FirecrawlService;
   private graphProvider = GraphFactory.getProvider();
   private memoryProvider = MemoryFactory.getProvider();
@@ -32,7 +32,7 @@ export class AgentService {
     this.chatRepo = new ChatRepository();
     this.memoryCoordinator = new MemoryCoordinatorService();
     this.memoryExtractor = new MemoryExtractorService();
-    this.rerankService = new RerankService();
+    this.contextBuilder = new ContextBuilderService();
     this.firecrawlService = new FirecrawlService();
   }
 
@@ -49,7 +49,7 @@ export class AgentService {
   }
 
   /**
-   * Execute Agentic RAG chat with multi-layer memory, reranking, tool calling, and streaming.
+   * Execute Agentic RAG chat with multi-layer memory, tool calling, and streaming.
    */
   async streamAgentChat(
     notebookId: string,
@@ -125,11 +125,10 @@ export class AgentService {
       ...memoryBundle.episodicMemories.map((ep) => ({ type: 'episodic', text: ep.summary })),
     ]);
 
-    // 3. Rerank + build structured context
-    const rankedContext = await this.rerankService.rerankBundle(queryForSearch, memoryBundle, 6);
+    // 3. Build structured context from multi-tier memory
+    const formattedContext = this.contextBuilder.buildContext(memoryBundle);
 
-    tracer.recordRerank(rankedContext.rankedItems);
-    tracer.recordFinalContext(rankedContext.formattedContext);
+    tracer.recordFinalContext(formattedContext.formattedContext);
     tracer.emit(); // debug-level log
 
     const openaiClient = createOpenAI({ apiKey: env.OPENAI_API_KEY });
@@ -139,7 +138,7 @@ export class AgentService {
         notebookId, userId, userQuery,
         correctedQuery: enhanced.correctedQuery,
         expandedKeywords: enhanced.expandedKeywords,
-        retrievedRankedCount: rankedContext.rankedItems.length,
+        retrievedChunkCount: memoryBundle.knowledgeChunks.length,
       },
       'Initiating Agentic RAG chat stream'
     );
@@ -150,11 +149,11 @@ export class AgentService {
     const systemPrompt = `You are Memora AI, an intelligent, grounded Notebook LLM assistant.
 Your goal is to answer the user's questions accurately using facts from their notebook source documents and memory.
 
-${rankedContext.userProfileContext ? `\n${rankedContext.userProfileContext}\n` : ''}
-${rankedContext.proceduralContext ? `\n${rankedContext.proceduralContext}\n` : ''}
+${formattedContext.userProfileContext ? `\n${formattedContext.userProfileContext}\n` : ''}
+${formattedContext.proceduralContext ? `\n${formattedContext.proceduralContext}\n` : ''}
 
 [RETRIEVED CONTEXT]
-${rankedContext.formattedContext || 'No relevant context retrieved yet — call searchParadeDB or queryKnowledgeGraph to retrieve sources.'}
+${formattedContext.formattedContext || 'No relevant context retrieved yet — call searchParadeDB or queryKnowledgeGraph to retrieve sources.'}
 
 INSTRUCTIONS:
 1. ALWAYS call 'searchParadeDB' first when the user asks about their notebook content, files, or topics. This is your primary retrieval tool.

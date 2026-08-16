@@ -29,12 +29,6 @@ export interface RetrievalTrace {
     text: string;
     score?: number;
   }[];
-  rerankScores: {
-    id: string;
-    sourceType: string;
-    rerankScore: number;
-    contentPreview: string;
-  }[];
   finalContext: string;
   durationMs?: number;
 }
@@ -44,7 +38,7 @@ export class RetrievalTracer {
   private startTime: number;
 
   constructor(query: string) {
-    this.trace = { query, bm25Results: [], graphResults: [], memoryResults: [], rerankScores: [] };
+    this.trace = { query, bm25Results: [], graphResults: [], memoryResults: [] };
     this.startTime = Date.now();
   }
 
@@ -81,15 +75,6 @@ export class RetrievalTracer {
 
   recordMemory(items: { type: string; text: string; score?: number }[]) {
     this.trace.memoryResults = items;
-  }
-
-  recordRerank(rankedItems: any[]) {
-    this.trace.rerankScores = rankedItems.map((r) => ({
-      id: r.document.id,
-      sourceType: r.document.sourceType,
-      rerankScore: r.score,
-      contentPreview: r.document.text.slice(0, 120),
-    }));
   }
 
   recordFinalContext(context: string) {
