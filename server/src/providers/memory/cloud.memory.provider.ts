@@ -180,16 +180,16 @@ export class CloudMemoryProvider implements IMemoryProvider {
   }
 
   async ping(): Promise<void> {
-    if (!this.apiKey) {
-      throw new Error('MEM0_API_KEY is not set for mem0_cloud provider');
+    if (!this.apiKey || this.apiKey.includes('placeholder')) {
+      throw new Error('MEM0_API_KEY is not set in .env. Please add MEM0_API_KEY=m0-your-api-key-here to use Mem0 Cloud memory.');
     }
-    const res = await fetch(`${this.baseUrl}/memories/`, {
+    const res = await fetch(`${this.baseUrl}/memories/?limit=1`, {
       method: 'GET',
       headers: this.getHeaders(),
       signal: AbortSignal.timeout(5000),
     });
-    if (!res.ok) {
-      throw new Error(`Mem0 Cloud API unreachable: ${res.status} ${res.statusText}`);
+    if (!res.ok && res.status !== 404) {
+      throw new Error(`Mem0 Cloud API error: ${res.status} ${res.statusText}`);
     }
   }
 }

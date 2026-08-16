@@ -20,7 +20,7 @@ const envSchema = z.object({
   OPENAI_MODEL: z.string().default('gpt-4o-mini'),
 
   // Memory Provider Configuration
-  MEMORY_PROVIDER: z.enum(['self_hosted', 'mem0_cloud']).default('self_hosted'),
+  MEMORY_PROVIDER: z.enum(['self_hosted', 'mem0_cloud']).default('mem0_cloud'),
   MEM0_HOST: z.string().default('http://localhost:8888'),
   MEM0_API_KEY: z.string().optional(),
 

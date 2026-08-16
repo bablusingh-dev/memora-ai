@@ -23,23 +23,23 @@ export async function connectDB() {
     const client = await pool.connect();
     logger.info({ databaseUrl: env.DATABASE_URL.replace(/:[^:@]+@/, ':****@') }, 'Database connection verified');
 
-    // Ensure chat_messages table and ParadeDB BM25 index exist
+    // Ensure chat_messages table and ParadeDB BM25 index exist safely
     await client.query(`
-      CREATE TABLE IF NOT EXISTS chat_messages (
-        id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-        notebook_id UUID NOT NULL REFERENCES notebooks(id) ON DELETE CASCADE,
-        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        role TEXT NOT NULL,
-        content TEXT NOT NULL,
-        parts JSONB,
-        is_graph_indexed BOOLEAN NOT NULL DEFAULT FALSE,
-        created_at TIMESTAMP NOT NULL DEFAULT NOW()
-      );
-      CREATE INDEX IF NOT EXISTS idx_chat_messages_notebook_id ON chat_messages(notebook_id);
-
       DO $$
       BEGIN
-        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'chat_messages') THEN
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'notebooks') AND
+           EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'users') THEN
+          CREATE TABLE IF NOT EXISTS chat_messages (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            notebook_id UUID NOT NULL REFERENCES notebooks(id) ON DELETE CASCADE,
+            user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+            role TEXT NOT NULL,
+            content TEXT NOT NULL,
+            parts JSONB,
+            is_graph_indexed BOOLEAN NOT NULL DEFAULT FALSE,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW()
+          );
+          CREATE INDEX IF NOT EXISTS idx_chat_messages_notebook_id ON chat_messages(notebook_id);
           ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS is_graph_indexed BOOLEAN NOT NULL DEFAULT FALSE;
           CREATE INDEX IF NOT EXISTS idx_chat_messages_graph_indexed ON chat_messages(is_graph_indexed);
         END IF;
