@@ -14,16 +14,16 @@ export function Footer() {
             </div>
             <div>
               <p className="font-bold text-sm tracking-tight text-foreground">Memora AI</p>
-              <p className="text-xs text-muted-foreground font-normal">Intelligent Research Workspace & Notebook LLM Alternative</p>
+              <p className="text-xs text-muted-foreground font-normal">Your research workspace — sources, conversation, and audio, all grounded.</p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-2 text-[11px] text-muted-foreground font-medium">
-            <span className="bg-muted px-3.5 py-1.5 rounded-full">Next.js 16 App Router</span>
+            <span className="bg-muted px-3.5 py-1.5 rounded-full">Next.js 16</span>
             <span className="bg-muted px-3.5 py-1.5 rounded-full">ParadeDB BM25</span>
             <span className="bg-muted px-3.5 py-1.5 rounded-full">Drizzle ORM</span>
             <span className="bg-muted px-3.5 py-1.5 rounded-full">Clerk Auth</span>
-            <span className="bg-muted px-3.5 py-1.5 rounded-full">Firecrawl Crawler</span>
+            <span className="bg-muted px-3.5 py-1.5 rounded-full">Firecrawl</span>
           </div>
 
           <div className="text-xs text-muted-foreground font-normal">

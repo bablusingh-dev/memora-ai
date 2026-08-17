@@ -53,6 +53,20 @@ const config: Config = {
         md: 'calc(var(--radius) - 2px)',
         sm: 'calc(var(--radius) - 4px)',
       },
+      keyframes: {
+        marquee: {
+          from: { transform: 'translateX(0)' },
+          to: { transform: 'translateX(-50%)' },
+        },
+        'fade-up': {
+          from: { opacity: '0', transform: 'translateY(12px)' },
+          to: { opacity: '1', transform: 'translateY(0)' },
+        },
+      },
+      animation: {
+        marquee: 'marquee 28s linear infinite',
+        'fade-up': 'fade-up 0.6s ease-out both',
+      },
     },
   },
   plugins: [],

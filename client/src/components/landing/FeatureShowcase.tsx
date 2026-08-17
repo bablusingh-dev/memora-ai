@@ -1,60 +1,64 @@
 'use client';
 
 import React from 'react';
-import { Database, FileUp, MessageSquare, Mic } from 'lucide-react';
+import { Search, FileUp, MessageSquare, Mic, Layers } from 'lucide-react';
 import { HoverEffect } from '@/components/aceternity/HoverEffect';
+import { Container } from '@/components/landing/shared/Container';
+import { SectionHeading } from '@/components/landing/shared/SectionHeading';
+import { Reveal } from '@/components/landing/shared/Reveal';
 
 export function FeatureShowcase() {
   const features = [
     {
-      icon: Database,
-      color: 'text-blue-500 bg-blue-500/10',
-      title: 'ParadeDB Vectorless BM25 Search',
+      icon: Search,
+      color: 'text-orange-500 bg-orange-500/10',
+      title: 'Full-Text Grounded Search',
       description:
-        'Leverages PostgreSQL pg_search BM25 algorithmic indexing for pinpoint keyword scoring and hybrid search across document chunks without semantic drift.',
-      points: ['No embedding hallucination', 'Instant keyword precision', 'Full Drizzle ORM integration'],
+        'Every answer is scored and retrieved with algorithmic full-text search across your document chunks — precise on exact keywords and technical terms, with no semantic drift.',
+      points: ['No embedding hallucination', 'Instant keyword precision', 'Every claim traces to a source'],
     },
     {
       icon: FileUp,
       color: 'text-amber-500 bg-amber-500/10',
-      title: 'Multi-Source Data Ingestion',
+      title: 'Bring Any Source',
       description:
-        'Ingest research documents from PDFs, text files, web page URLs using Firecrawl, or YouTube video transcripts into a single organized workspace.',
-      points: ['PDF & TXT document parsing', 'Firecrawl Web Crawler', 'YouTube transcript extraction'],
+        'Ingest research documents from PDFs and text files, crawl entire web pages, or pull the full transcript from a YouTube video — all into one organized workspace.',
+      points: ['PDF & TXT document parsing', 'Full web page crawling', 'YouTube transcript extraction'],
     },
     {
       icon: MessageSquare,
       color: 'text-indigo-500 bg-indigo-500/10',
-      title: 'Interactive Chat & Note Studio',
+      title: 'Chat That Cites Its Work',
       description:
-        'Chat directly with your active workspace sources. Generate markdown notes, executive summaries, and study guides with real-time source citations.',
+        'Ask questions directly against your active workspace. Every response comes with clickable citations, and you can save any answer straight into your notes.',
       points: ['Context-grounded responses', 'One-click note synthesis', 'Markdown formatting support'],
     },
     {
       icon: Mic,
       color: 'text-emerald-500 bg-emerald-500/10',
-      title: 'Audio Podcast Overview Generator',
+      title: 'Turn Sources Into Audio',
       description:
-        'Convert key insights from your workspace sources into engaging, two-speaker audio overviews that explain complex topics naturally.',
-      points: ['Two-speaker conversational audio', 'Instant audio playback', 'Notebook insight synthesis'],
+        'Convert the key insights from your workspace into an engaging, two-speaker audio overview that explains complex topics naturally — perfect for listening on the go.',
+      points: ['Two-speaker conversational audio', 'Instant playback', 'Synthesized from your own sources'],
     },
   ];
 
   return (
     <section id="features" className="py-24 bg-muted/20 relative z-10 transition-colors">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="text-center max-w-3xl mx-auto mb-12">
-          <h2 className="text-3xl sm:text-5xl font-extrabold tracking-tight text-foreground mb-4">
-            Engineered for Deep Research & Knowledge Synthesis
-          </h2>
-          <p className="text-base text-muted-foreground leading-relaxed font-normal">
-            Everything you need to ingest, index, query, and listen to your research documents with total accuracy.
-          </p>
-        </div>
+      <Container>
+        <Reveal>
+          <SectionHeading
+            eyebrow="Capabilities"
+            eyebrowIcon={Layers}
+            title="Engineered for deep research and knowledge synthesis"
+            description="Everything you need to ingest, question, and listen to your own research — with total accuracy."
+          />
+        </Reveal>
 
-        {/* Aceternity Animated Hover Grid */}
-        <HoverEffect items={features} />
-      </div>
+        <Reveal delay={0.1}>
+          <HoverEffect items={features} />
+        </Reveal>
+      </Container>
     </section>
   );
 }

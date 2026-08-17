@@ -6,6 +6,7 @@ import { SourcesPanel } from '@/components/notebook/SourcesPanel';
 import { ChatStudioPanel } from '@/components/notebook/ChatStudioPanel';
 import { AudioOverviewPanel } from '@/components/notebook/AudioOverviewPanel';
 import { NotebookSwitcher } from '@/components/notebook/NotebookSwitcher';
+import { ModuleRail } from '@/components/notebook/ModuleRail';
 import { CreateNotebookModal } from '@/components/notebook/CreateNotebookModal';
 import { AddSourceModal } from '@/components/notebook/AddSourceModal';
 import {
@@ -112,7 +113,7 @@ export default function WorkspaceDashboardPage() {
               <span>Memora AI Workspace Guide</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground leading-relaxed mt-1">
-              Notebook LLM Alternative powered by ParadeDB BM25 Vectorless Search & Firecrawl Web Scraping.
+              Your grounded research workspace — full-text BM25 search plus PDF, web, and video ingestion.
             </DialogDescription>
           </DialogHeader>
 
@@ -324,22 +325,26 @@ export default function WorkspaceDashboardPage() {
 
       {/* Main Responsive Layout: 3 Independent Floating Sections with Gaps & Border Radius */}
       <main className="flex-1 min-h-0 relative px-3 pb-3">
-        {/* Desktop Layout (>= lg): 3 Rounded Floating Columns */}
-        <div className="hidden lg:grid grid-cols-12 h-full w-full gap-3">
-          {/* Left Column: Grounding Sources (Side Panel Shade: bg-slate-200/80 dark:bg-zinc-900) */}
-          <section className="col-span-3 h-full min-h-0 overflow-hidden rounded-3xl bg-slate-200/80 dark:bg-zinc-900/90 shadow-2xs">
-            <SourcesPanel />
-          </section>
+        {/* Desktop Layout (>= lg): Module Rail + 3 Rounded Floating Columns */}
+        <div className="hidden lg:flex h-full w-full gap-3">
+          <ModuleRail />
 
-          {/* Center Column: AI Chat Studio (Center Panel Shade: bg-white dark:bg-zinc-950) */}
-          <section className="col-span-6 h-full min-h-0 overflow-hidden rounded-3xl bg-white dark:bg-zinc-950 shadow-2xs">
-            <ChatStudioPanel />
-          </section>
+          <div className="grid grid-cols-12 flex-1 min-w-0 h-full gap-3">
+            {/* Left Column: Grounding Sources (Side Panel Shade: bg-slate-200/80 dark:bg-zinc-900) */}
+            <section className="col-span-3 h-full min-h-0 overflow-hidden rounded-3xl bg-slate-200/80 dark:bg-zinc-900/90 shadow-2xs">
+              <SourcesPanel />
+            </section>
 
-          {/* Right Column: Audio Overview & Studio (Side Panel Shade: bg-slate-200/80 dark:bg-zinc-900 - MATCHES LEFT SIDE) */}
-          <section className="col-span-3 h-full min-h-0 overflow-hidden rounded-3xl bg-slate-200/80 dark:bg-zinc-900/90 shadow-2xs">
-            <AudioOverviewPanel />
-          </section>
+            {/* Center Column: AI Chat Studio (Center Panel Shade: bg-white dark:bg-zinc-950) */}
+            <section className="col-span-6 h-full min-h-0 overflow-hidden rounded-3xl bg-white dark:bg-zinc-950 shadow-2xs">
+              <ChatStudioPanel />
+            </section>
+
+            {/* Right Column: Audio Overview & Studio (Side Panel Shade: bg-slate-200/80 dark:bg-zinc-900 - MATCHES LEFT SIDE) */}
+            <section className="col-span-3 h-full min-h-0 overflow-hidden rounded-3xl bg-slate-200/80 dark:bg-zinc-900/90 shadow-2xs">
+              <AudioOverviewPanel />
+            </section>
+          </div>
         </div>
 
         {/* Mobile View Layout (< lg) */}

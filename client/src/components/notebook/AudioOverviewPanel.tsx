@@ -47,7 +47,7 @@ export function AudioOverviewPanel() {
   const [notesSearch, setNotesSearch] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Audio Player Mock State (Notebook LLM Deep-Dive Audio)
+  // Audio Player Mock State (deep-dive audio overview)
   const [isPlaying, setIsPlaying] = useState(false);
   const [playbackProgress, setPlaybackProgress] = useState(25);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);

@@ -277,10 +277,13 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-sm font-bold text-foreground">
                 <Database className="w-4 h-4 text-primary" />
-                <span>ParadeDB BM25 Chunk Citation</span>
+                <span>Source Citation</span>
+                <Badge variant="secondary" className="font-mono text-[10px] text-primary bg-primary/10 border-0">
+                  BM25
+                </Badge>
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
-                <span>BM25 Match Score:</span>
+                <span>Match Score:</span>
                 <Badge variant="secondary" className="font-mono text-[10px] text-primary bg-primary/10 border-0">
                   {selectedCitation?.score?.toFixed(3) ?? '1.000'}
                 </Badge>
@@ -339,7 +342,7 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
               </div>
               <div className="space-y-1 max-w-sm">
                 <h3 className="font-bold text-sm text-foreground">
-                  Grounded Notebook LLM Studio
+                  Ask anything, grounded in your sources
                 </h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   Ask questions, request summaries, or generate study guides based strictly on your workspace sources.

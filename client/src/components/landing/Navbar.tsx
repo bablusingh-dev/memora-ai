@@ -48,11 +48,11 @@ export function Navbar() {
           <a href="#features" className="hover:text-foreground transition-colors">
             Features
           </a>
-          <a href="#architecture" className="hover:text-foreground transition-colors">
-            Architecture
-          </a>
           <a href="#how-it-works" className="hover:text-foreground transition-colors">
             How It Works
+          </a>
+          <a href="#how-its-built" className="hover:text-foreground transition-colors">
+            How It's Built
           </a>
           <a href="#faq" className="hover:text-foreground transition-colors">
             FAQ

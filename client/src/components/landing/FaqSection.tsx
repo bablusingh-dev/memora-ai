@@ -2,18 +2,19 @@
 
 import React, { useState } from 'react';
 import { ChevronDown, HelpCircle } from 'lucide-react';
+import { Reveal } from '@/components/landing/shared/Reveal';
 
 export function FaqSection() {
   const faqs = [
     {
       question: 'What is Memora AI and how does it work?',
       answer:
-        'Memora AI is a production-grade AI Research Workspace and Notebook LLM alternative. You can create workspaces, upload research sources (PDFs, web pages, YouTube links, text files), and interact with them using context-grounded AI chat and podcast-style audio summaries.',
+        'Memora AI is a research workspace: create a workspace, upload your sources (PDFs, web pages, YouTube links, text files), and interact with them through context-grounded AI chat, generated study notes, and podcast-style audio overviews — all synthesized strictly from your own material.',
     },
     {
-      question: 'Why use ParadeDB BM25 search over traditional vector embeddings?',
+      question: 'Why full-text BM25 search instead of vector embeddings?',
       answer:
-        'ParadeDB pg_search uses full-text BM25 algorithmic search directly inside PostgreSQL. Vector embeddings often suffer from semantic drift and hallucination on precise technical terms, whereas BM25 ensures exact keyword matching and high-scoring chunk retrieval.',
+        'Memora uses ParadeDB pg_search to run full-text BM25 algorithmic search directly inside PostgreSQL. Vector embeddings can suffer from semantic drift and hallucination on precise technical terms, whereas BM25 ensures exact keyword matching and high-scoring chunk retrieval.',
     },
     {
       question: 'How is user data protected and isolated?',
@@ -50,7 +51,7 @@ export function FaqSection() {
             Frequently Asked Questions
           </h2>
           <p className="text-base text-muted-foreground leading-relaxed font-normal">
-            Everything you need to know about Memora AI, BM25 search architecture, and security.
+            Everything you need to know about how Memora AI works, and how your data stays secure.
           </p>
         </div>
 
@@ -58,27 +59,26 @@ export function FaqSection() {
           {faqs.map((faq, idx) => {
             const isOpen = openIndex === idx;
             return (
-              <div
-                key={idx}
-                className="rounded-2xl bg-card hover:bg-muted/40 overflow-hidden transition-all shadow-sm border-0"
-              >
-                <button
-                  onClick={() => toggle(idx)}
-                  className="w-full p-6 text-left flex items-center justify-between font-bold text-sm sm:text-base text-foreground hover:text-primary transition-colors focus:outline-none"
-                >
-                  <span>{faq.question}</span>
-                  <ChevronDown
-                    className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-200 ${
-                      isOpen ? 'rotate-180 text-primary' : ''
-                    }`}
-                  />
-                </button>
-                {isOpen && (
-                  <div className="px-6 pb-6 text-xs sm:text-sm text-muted-foreground leading-relaxed pt-1">
-                    {faq.answer}
-                  </div>
-                )}
-              </div>
+              <Reveal key={idx} delay={idx * 0.05}>
+                <div className="rounded-2xl bg-card hover:bg-muted/40 overflow-hidden transition-all shadow-sm border-0">
+                  <button
+                    onClick={() => toggle(idx)}
+                    className="w-full p-6 text-left flex items-center justify-between font-bold text-sm sm:text-base text-foreground hover:text-primary transition-colors focus:outline-none"
+                  >
+                    <span>{faq.question}</span>
+                    <ChevronDown
+                      className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-200 ${
+                        isOpen ? 'rotate-180 text-primary' : ''
+                      }`}
+                    />
+                  </button>
+                  {isOpen && (
+                    <div className="px-6 pb-6 text-xs sm:text-sm text-muted-foreground leading-relaxed pt-1">
+                      {faq.answer}
+                    </div>
+                  )}
+                </div>
+              </Reveal>
             );
           })}
         </div>

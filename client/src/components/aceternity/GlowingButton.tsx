@@ -24,7 +24,7 @@ export const GlowingButton = ({
     <button
       onClick={onClick}
       className={cn(
-        'relative inline-flex items-center justify-center p-0.5 overflow-hidden text-sm font-semibold rounded-2xl group bg-gradient-to-br from-blue-600 via-indigo-600 to-cyan-500 hover:from-blue-500 hover:to-cyan-400 text-white shadow-lg shadow-blue-500/20 active:scale-[0.98] transition-all cursor-pointer border-0',
+        'relative inline-flex items-center justify-center p-0.5 overflow-hidden text-sm font-semibold rounded-2xl group bg-gradient-to-br from-orange-600 via-amber-600 to-orange-400 hover:from-orange-500 hover:to-amber-400 text-white shadow-lg shadow-orange-500/20 active:scale-[0.98] transition-all cursor-pointer border-0',
         className
       )}
     >

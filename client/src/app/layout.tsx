@@ -17,8 +17,8 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Memora AI | Intelligent Research Workspace & Notebook LLM',
-  description: 'Production-grade AI Research Workspace powered by Vectorless ParadeDB BM25 RAG, AI Chat Studio, and Audio Overviews.',
+  title: 'Memora AI | Your Grounded Research Workspace',
+  description: 'Upload your sources and get cited answers, generated study notes, and two-speaker audio overviews — all synthesized from your own material.',
 };
 
 const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;

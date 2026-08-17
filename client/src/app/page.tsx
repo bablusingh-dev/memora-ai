@@ -4,8 +4,11 @@ import React, { useEffect } from 'react';
 import { Navbar } from '@/components/landing/Navbar';
 import { HeroSection } from '@/components/landing/HeroSection';
 import { FeatureShowcase } from '@/components/landing/FeatureShowcase';
-import { InteractivePreview } from '@/components/landing/InteractivePreview';
+import { HowItWorks } from '@/components/landing/HowItWorks';
+import { ProductPreview } from '@/components/landing/ProductPreview';
+import { HowItsBuilt } from '@/components/landing/HowItsBuilt';
 import { FaqSection } from '@/components/landing/FaqSection';
+import { ClosingCta } from '@/components/landing/ClosingCta';
 import { Footer } from '@/components/landing/Footer';
 import { CreateNotebookModal } from '@/components/notebook/CreateNotebookModal';
 import { useAuth } from '@clerk/nextjs';
@@ -47,8 +50,11 @@ export default function LandingPage() {
       <main className="flex-1">
         <HeroSection />
         <FeatureShowcase />
-        <InteractivePreview />
+        <HowItWorks />
+        <ProductPreview />
+        <HowItsBuilt />
         <FaqSection />
+        <ClosingCta />
       </main>
 
       {/* Footer */}
