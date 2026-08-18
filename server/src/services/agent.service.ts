@@ -10,6 +10,7 @@ import { GraphFactory } from '../providers/graph/graph.factory.js';
 import { MemoryFactory } from '../providers/memory/memory.factory.js';
 import { FirecrawlService } from './firecrawl.service.js';
 import { RetrievalTracer } from '../utils/retrieval-trace.js';
+import { retryWithBackoff } from '../utils/retry.js';
 import { db } from '../db/index.js';
 import { notes } from '../db/schema.js';
 import { logger } from '../utils/logger.js';
@@ -17,7 +18,7 @@ import { queryEnhancer } from './query-enhancer.service.js';
 import { embeddingService } from './embedding.service.js';
 import { inngest } from '../inngest/client.js';
 import { chatMessageCompleted } from '../inngest/events.js';
-import { BadRequestError } from '../utils/api-error.js';
+import { BadRequestError, TooManyRequestsError } from '../utils/api-error.js';
 
 export class AgentService {
   private notebookRepo: NotebookRepository;
@@ -28,12 +29,39 @@ export class AgentService {
   private graphProvider = GraphFactory.getProvider();
   private memoryProvider = MemoryFactory.getProvider();
 
+  // In-memory, single-instance bulkhead against one user opening more
+  // concurrent chat streams than env.MAX_CONCURRENT_STREAMS_PER_USER — each
+  // stream already fans out to ~2 LLM calls (query enhancement + main
+  // completion, more with tool calls) plus BM25/vector/graph/mem0 retrieval,
+  // so unbounded parallel streams from one user is a real cost/load risk.
+  // Static (not per-instance) since AgentService may be constructed more
+  // than once but the limit is process-wide. Would need a shared store
+  // (Redis, etc.) to hold across multiple server instances — acceptable
+  // limitation for this app's current non-HA deployment model.
+  private static activeStreamCounts = new Map<string, number>();
+
   constructor() {
     this.notebookRepo = new NotebookRepository();
     this.chatRepo = new ChatRepository();
     this.memoryCoordinator = new MemoryCoordinatorService();
     this.contextBuilder = new ContextBuilderService();
     this.firecrawlService = new FirecrawlService();
+  }
+
+  private static acquireStreamSlot(userId: string): boolean {
+    const current = AgentService.activeStreamCounts.get(userId) || 0;
+    if (current >= env.MAX_CONCURRENT_STREAMS_PER_USER) return false;
+    AgentService.activeStreamCounts.set(userId, current + 1);
+    return true;
+  }
+
+  private static releaseStreamSlot(userId: string): void {
+    const current = AgentService.activeStreamCounts.get(userId) || 0;
+    if (current <= 1) {
+      AgentService.activeStreamCounts.delete(userId);
+    } else {
+      AgentService.activeStreamCounts.set(userId, current - 1);
+    }
   }
 
   async getChatHistory(notebookId: string, userId: string) {
@@ -57,6 +85,29 @@ export class AgentService {
     messages: any[],
     options: { enableWebSearch?: boolean } = {}
   ) {
+    if (!AgentService.acquireStreamSlot(userId)) {
+      throw new TooManyRequestsError(
+        `You already have ${env.MAX_CONCURRENT_STREAMS_PER_USER} chat response(s) in progress. Please wait for one to finish before starting another.`
+      );
+    }
+
+    try {
+      return await this.doStreamAgentChat(notebookId, userId, messages, options);
+    } catch (err) {
+      // Only reached if setup fails before streamText is called — once
+      // streaming starts, the slot is released from onFinish/onError below
+      // instead, since this function returns before the stream completes.
+      AgentService.releaseStreamSlot(userId);
+      throw err;
+    }
+  }
+
+  private async doStreamAgentChat(
+    notebookId: string,
+    userId: string,
+    messages: any[],
+    options: { enableWebSearch?: boolean }
+  ) {
     const isWebSearchEnabled = Boolean(options.enableWebSearch);
 
     const notebook = await this.notebookRepo.findById(notebookId, userId);
@@ -79,22 +130,36 @@ export class AgentService {
       }
     }
 
-    // Persist user message
-    try {
-      if (userQuery.trim()) {
-        await this.chatRepo.createMessage({
-          notebookId, userId, role: 'user',
-          content: userQuery.trim(),
-          parts: lastUserMsg?.parts || [{ type: 'text', text: userQuery.trim() }],
-        });
+    // Persist user message. Retried a few times — this needs to succeed
+    // synchronously (the UI already shows the user's message optimistically,
+    // so silently losing it on a transient DB blip would desync history),
+    // unlike memory extraction below which is fine to hand off to Inngest.
+    if (userQuery.trim()) {
+      try {
+        await retryWithBackoff(() =>
+          this.chatRepo.createMessage({
+            notebookId, userId, role: 'user',
+            content: userQuery.trim(),
+            parts: lastUserMsg?.parts || [{ type: 'text', text: userQuery.trim() }],
+          })
+        );
+      } catch (err) {
+        logger.error({ err, notebookId }, 'Failed to persist user chat message after retries');
       }
-    } catch (err) {
-      logger.error({ err, notebookId }, 'Failed to persist user chat message');
     }
 
-    // 1. Query enhancement
+    // 1 & 2. Query enhancement and the CONVERSATION/USER memory layers run
+    // concurrently — neither depends on the other. Enhancement is an LLM
+    // call (typo correction + keyword expansion) that only the
+    // DOCUMENT/GRAPH layers actually need; conversation history and mem0
+    // search tolerate the raw query fine. Previously these ran fully
+    // sequentially, adding the enhancement call's latency to every turn even
+    // though most of retrieval didn't depend on its output.
     const modelHistory = this.convertToModelMessages(messages);
-    const enhanced = await queryEnhancer.enhanceQuery(userQuery, modelHistory);
+    const [enhanced, independentMemories] = await Promise.all([
+      queryEnhancer.enhanceQuery(userQuery, modelHistory),
+      this.memoryCoordinator.retrieveQueryIndependentMemories(notebookId, userId, userQuery),
+    ]);
     const queryForSearch = enhanced.correctedQuery || userQuery;
 
     // Initialize retrieval tracer
@@ -105,13 +170,16 @@ export class AgentService {
       [] // entity candidates recorded inside coordinator
     );
 
-    // 2. Multi-layer memory retrieval
-    const memoryBundle = await this.memoryCoordinator.retrieveAllMemories(
+    // 3. DOCUMENT/GRAPH layers — need the corrected+expanded query, so these
+    // wait for query enhancement to finish (see retrieveQueryDependentMemories's
+    // doc comment for why this split is safe/correct).
+    const dependentMemories = await this.memoryCoordinator.retrieveQueryDependentMemories(
       notebookId,
       userId,
       queryForSearch,
       enhanced.expandedKeywords || []
     );
+    const memoryBundle = this.memoryCoordinator.buildBundle(notebookId, userId, queryForSearch, independentMemories, dependentMemories);
 
     // Record trace data
     tracer.recordBM25(memoryBundle.knowledgeChunks.map((c) => ({
@@ -130,7 +198,8 @@ export class AgentService {
       ...memoryBundle.episodicMemories.map((ep) => ({ type: 'episodic', text: ep.summary })),
     ]);
 
-    // 3. Build structured context from multi-tier memory
+    // 4. Build structured context from multi-tier memory (token-budgeted —
+    // see ContextBuilderService)
     const formattedContext = this.contextBuilder.buildContext(memoryBundle);
 
     tracer.recordFinalContext(formattedContext.formattedContext);
@@ -161,8 +230,8 @@ ${formattedContext.proceduralContext ? `\n${formattedContext.proceduralContext}\
 ${formattedContext.formattedContext || 'No relevant context retrieved yet — call searchKnowledgeBase or queryKnowledgeGraph to retrieve sources.'}
 
 INSTRUCTIONS:
-1. ALWAYS call 'searchKnowledgeBase' first when the user asks about their notebook content, files, or topics. This is your primary retrieval tool.
-2. Call 'queryKnowledgeGraph' when the question involves relationships, connections, "who created X", "what is related to Y", or dependency chains.
+1. The [RETRIEVED CONTEXT] above was already searched for this query — use it directly as your primary source. Only call 'searchKnowledgeBase' if that context is insufficient to answer, the conversation has shifted to a different topic than what's shown above, or you need a more specific/refined search.
+2. Call 'queryKnowledgeGraph' when the question involves relationships, connections, "who created X", "what is related to Y", or dependency chains not already covered by [GRAPH FACTS] above.
 3. Ground every statement in retrieved sources. Do NOT hallucinate or invent facts.
 4. When citing sources, reference the document section and chunk number, e.g. [Source: Authentication > JWT, Chunk #3].
 5. If you cite a graph fact, mention the confidence level if below 0.90.
@@ -174,7 +243,7 @@ INSTRUCTIONS:
     // Tools
     // -------------------------------------------------------------------------
     const searchKnowledgeBase = (tool as any)({
-      description: 'Search notebook document chunks using hybrid retrieval — BM25 lexical search fused with pgvector semantic search via Reciprocal Rank Fusion. Call this first for any question about notebook content; also call it again with a different/refined query if the context above turns out insufficient or the conversation shifts topic.',
+      description: 'Search notebook document chunks using hybrid retrieval — BM25 lexical search fused with pgvector semantic search via Reciprocal Rank Fusion. The system prompt already contains an initial search for the user\'s query; call this only to refine/broaden that search or when the conversation has moved to a new topic.',
       parameters: z.object({
         query: z.string().optional().describe('Search query keywords or question.'),
         topK: z.number().optional().default(5).describe('Number of top relevant chunks to retrieve'),
@@ -300,6 +369,10 @@ INSTRUCTIONS:
       messages: modelMessages,
       stopWhen: isStepCount(5),
       tools: activeTools,
+      onError: (event: any) => {
+        logger.error({ error: event?.error, notebookId, userId }, 'Chat stream errored');
+        AgentService.releaseStreamSlot(userId);
+      },
       onFinish: async (event: any) => {
         try {
           const assistantText = event.text || '';
@@ -322,9 +395,9 @@ INSTRUCTIONS:
           if (assistantText) parts.push({ type: 'text', text: assistantText });
 
           if (assistantText || parts.length > 0) {
-            const savedMessage = await this.chatRepo.createMessage({
-              notebookId, userId, role: 'assistant', content: assistantText, parts,
-            });
+            const savedMessage = await retryWithBackoff(() =>
+              this.chatRepo.createMessage({ notebookId, userId, role: 'assistant', content: assistantText, parts })
+            );
             logger.info({ notebookId, userId }, 'Persisted assistant response');
 
             // Durable memory extraction (NOT document graph — that's handled
@@ -352,7 +425,9 @@ INSTRUCTIONS:
             }
           }
         } catch (saveErr) {
-          logger.error({ saveErr, notebookId }, 'Failed to persist assistant response');
+          logger.error({ saveErr, notebookId }, 'Failed to persist assistant response after retries');
+        } finally {
+          AgentService.releaseStreamSlot(userId);
         }
       },
     } as any);
@@ -368,6 +443,13 @@ INSTRUCTIONS:
         if (typeof msg.content === 'string') {
           content = msg.content;
         } else if (Array.isArray(msg.parts)) {
+          const nonTextParts = msg.parts.filter((p: any) => p.type !== 'text');
+          if (nonTextParts.length > 0) {
+            logger.warn(
+              { role, droppedPartTypes: nonTextParts.map((p: any) => p.type) },
+              'convertToModelMessages: dropping non-text message part(s) — multimodal content is not yet forwarded to the model'
+            );
+          }
           content = msg.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text as string).join('');
         } else {
           content = '';

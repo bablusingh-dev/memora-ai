@@ -1,4 +1,5 @@
 import { logger } from '../utils/logger.js';
+import { approxTokenCount as approxTokens } from '../utils/tokens.js';
 
 export interface TextChunk {
   /** Raw extracted content from the source document — never modified. */
@@ -23,13 +24,6 @@ export interface TextChunk {
   endPosition: number;
 }
 
-// ---------------------------------------------------------------------------
-// Token counting heuristic: 1 token ≈ 4 characters (GPT-family average)
-// Avoids pulling in a tokenizer library.
-// ---------------------------------------------------------------------------
-function approxTokens(text: string): number {
-  return Math.ceil(text.length / 4);
-}
 
 // ---------------------------------------------------------------------------
 // Document type detection

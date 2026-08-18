@@ -1,7 +1,9 @@
 import { MemoryFactory } from '../../providers/memory/memory.factory.js';
 import { GraphFactory } from '../../providers/graph/graph.factory.js';
 import { NotebookRepository } from '../../repositories/notebook.repository.js';
-import { ChatRepository } from '../../repositories/chat.repository.js';
+import { ChatRepository, ChatMessage } from '../../repositories/chat.repository.js';
+import { MemoryItem } from '../../providers/memory/memory.interface.js';
+import { GraphQueryResult } from '../../providers/graph/graph.interface.js';
 import { embeddingService } from '../embedding.service.js';
 import {
   CognitiveMemoryBundle,
@@ -14,6 +16,22 @@ import {
 } from './cognitive-memory.types.js';
 import { logger } from '../../utils/logger.js';
 
+/** Recent chat turns injected into every prompt — deliberately small. */
+const RECENT_TURNS_LIMIT = 6;
+
+export interface QueryIndependentMemories {
+  recentChatMessages: ChatMessage[];
+  userProfileMemories: MemoryItem[];
+  semanticMemories: MemoryItem[];
+  episodicMemories: MemoryItem[];
+  proceduralMemories: MemoryItem[];
+}
+
+export interface QueryDependentMemories {
+  graphResult: GraphQueryResult;
+  knowledgeChunks: any[];
+}
+
 export class MemoryCoordinatorService {
   private memoryProvider = MemoryFactory.getProvider();
   private graphProvider = GraphFactory.getProvider();
@@ -21,17 +39,11 @@ export class MemoryCoordinatorService {
   private chatRepo = new ChatRepository();
 
   /**
-   * Retrieves context across all memory layers for a given user query.
-   *
-   * Layer separation:
-   *   CONVERSATION — recent chat turns (always from Postgres, not mem0)
-   *   USER         — user profile, episodic events, procedural rules (from mem0)
-   *   DOCUMENT     — hybrid BM25 + pgvector knowledge chunks (from ParadeDB)
-   *   GRAPH        — entity relationships (from Neo4j, query-driven)
-   *
-   * @param expandedKeywords Query-enhancer keyword variants (see
-   *   QueryEnhancerService) fed into the DOCUMENT layer's multi-query BM25
-   *   fusion alongside the primary query.
+   * Convenience wrapper for callers that don't need the two halves run in
+   * parallel against something else (agent.service.ts doesn't use this —
+   * it runs retrieveQueryIndependentMemories concurrently with query
+   * enhancement, then retrieveQueryDependentMemories with the corrected
+   * query; see streamAgentChat).
    */
   async retrieveAllMemories(
     notebookId: string,
@@ -39,62 +51,95 @@ export class MemoryCoordinatorService {
     query: string,
     expandedKeywords: string[] = []
   ): Promise<CognitiveMemoryBundle> {
-    logger.info({ notebookId, userId, query }, 'Coordinating multi-layer memory retrieval');
+    const [independent, dependent] = await Promise.all([
+      this.retrieveQueryIndependentMemories(notebookId, userId, query),
+      this.retrieveQueryDependentMemories(notebookId, userId, query, expandedKeywords),
+    ]);
+    return this.buildBundle(notebookId, userId, query, independent, dependent);
+  }
 
-    const entityCandidates = this.extractQueryEntities(query);
-    const relevantRelTypes = this.inferRelevantRelationships(query);
-
-    const [
-      recentChatMessages,
-      userProfileMemories,
-      semanticMemories,
-      episodicMemories,
-      proceduralMemories,
-      graphResult,
-      knowledgeChunks,
-    ] = await Promise.all([
-      // CONVERSATION layer — last 6 turns from Postgres
-      this.chatRepo.findByNotebookId(notebookId, userId).catch((error) => {
+  /**
+   * CONVERSATION + USER layers — none of these need the query-enhancer's
+   * corrected/expanded query to be useful. Conversation history doesn't use
+   * the query at all; mem0's own semantic search tolerates typos in `query`
+   * far better than exact-lexical BM25 does, so waiting for spell-correction
+   * before running these buys ~nothing. Callers can (and agent.service.ts
+   * does) kick this off in parallel with the query-enhancement LLM call
+   * instead of after it.
+   */
+  async retrieveQueryIndependentMemories(notebookId: string, userId: string, query: string): Promise<QueryIndependentMemories> {
+    const [recentChatMessages, userProfileMemories, semanticMemories, episodicMemories, proceduralMemories] = await Promise.all([
+      // CONVERSATION layer — last N turns from Postgres, fetched with a
+      // bounded query (ORDER BY created_at DESC LIMIT N) instead of pulling
+      // the notebook's entire history and slicing in application code.
+      this.chatRepo.findRecentByNotebookId(notebookId, userId, RECENT_TURNS_LIMIT).catch((error) => {
         logger.error({ error, notebookId, userId }, 'CONVERSATION layer retrieval failed in memory coordinator');
         return [];
       }),
-      // USER layer — profile declarations
       this.memoryProvider.search(query, { userId, category: 'user_profile', limit: 3 }).catch((error) => {
         logger.error({ error, userId, query, category: 'user_profile' }, 'USER layer retrieval failed in memory coordinator');
         return [];
       }),
-      // USER layer — semantic facts from past sessions
       this.memoryProvider.search(query, { userId, category: 'semantic', limit: 4 }).catch((error) => {
         logger.error({ error, userId, query, category: 'semantic' }, 'USER layer retrieval failed in memory coordinator');
         return [];
       }),
-      // USER layer — episodic session summaries
       this.memoryProvider.search(query, { userId, category: 'episodic', limit: 3 }).catch((error) => {
         logger.error({ error, userId, query, category: 'episodic' }, 'USER layer retrieval failed in memory coordinator');
         return [];
       }),
-      // USER layer — procedural formatting rules
       this.memoryProvider.search(query, { userId, category: 'procedural', limit: 2 }).catch((error) => {
         logger.error({ error, userId, query, category: 'procedural' }, 'USER layer retrieval failed in memory coordinator');
         return [];
       }),
-      // GRAPH layer — query-driven entity neighbor retrieval
-      this.graphProvider
-        .getNeighborsByQuery(entityCandidates, notebookId, relevantRelTypes, 2)
-        .catch((error) => {
-          logger.error({ error, notebookId, entityCandidates }, 'GRAPH layer retrieval failed in memory coordinator');
-          return { entities: [], relations: [] };
-        }),
-      // DOCUMENT layer — hybrid BM25 + pgvector knowledge chunks (searches
-      // retrieval_content). Query embedding is generated here, scoped to
-      // this branch, so a slow/failed embeddings call only affects the
-      // document layer's own latency/fallback rather than blocking the
-      // other branches running in parallel alongside it.
+    ]);
+
+    return { recentChatMessages, userProfileMemories, semanticMemories, episodicMemories, proceduralMemories };
+  }
+
+  /**
+   * DOCUMENT + GRAPH layers — both benefit from the query-enhancer's typo
+   * correction and keyword expansion (lexical BM25 matching and named-entity
+   * extraction are both sensitive to exact wording in a way mem0's semantic
+   * search isn't), so callers should await query enhancement before calling
+   * this — unlike retrieveQueryIndependentMemories.
+   */
+  async retrieveQueryDependentMemories(
+    notebookId: string,
+    userId: string,
+    query: string,
+    expandedKeywords: string[] = []
+  ): Promise<QueryDependentMemories> {
+    const entityCandidates = this.extractQueryEntities(query);
+    const relevantRelTypes = this.inferRelevantRelationships(query);
+
+    const [graphResult, knowledgeChunks] = await Promise.all([
+      this.graphProvider.getNeighborsByQuery(entityCandidates, notebookId, relevantRelTypes, 2).catch((error) => {
+        logger.error({ error, notebookId, entityCandidates }, 'GRAPH layer retrieval failed in memory coordinator');
+        return { entities: [], relations: [] };
+      }),
       this.retrieveDocumentLayer(notebookId, query, expandedKeywords).catch((error) => {
         logger.error({ error, notebookId, query }, 'DOCUMENT layer retrieval failed in memory coordinator');
         return [];
       }),
     ]);
+
+    return { graphResult, knowledgeChunks };
+  }
+
+  /**
+   * Maps the two raw result halves into the structured CognitiveMemoryBundle
+   * the context builder and system prompt consume. Pure mapping — no I/O.
+   */
+  buildBundle(
+    notebookId: string,
+    userId: string,
+    query: string,
+    independent: QueryIndependentMemories,
+    dependent: QueryDependentMemories
+  ): CognitiveMemoryBundle {
+    const { recentChatMessages, userProfileMemories, semanticMemories, episodicMemories, proceduralMemories } = independent;
+    const { graphResult, knowledgeChunks } = dependent;
 
     // --- Map USER layer ---
     const semanticFacts: SemanticFactMemory[] = semanticMemories.map((m) => ({
@@ -176,7 +221,7 @@ export class MemoryCoordinatorService {
     }));
 
     // --- Map CONVERSATION layer ---
-    const recentTurns = (recentChatMessages || []).slice(-6);
+    const recentTurns = (recentChatMessages || []).slice(-RECENT_TURNS_LIMIT);
     const userProfileText = userProfileMemories.map((u) => u.memory).join('\n');
 
     return {
@@ -213,9 +258,9 @@ export class MemoryCoordinatorService {
   /**
    * DOCUMENT layer: embed the query (soft-fail — null on error, degrading to
    * BM25-only), then run hybrid BM25 + pgvector retrieval. Bundled as one
-   * async unit so it's a single parallel branch in retrieveAllMemories'
-   * Promise.all rather than adding a second top-level embedding call that
-   * other branches would have to wait on.
+   * async unit so it's a single parallel branch alongside the graph layer
+   * rather than adding a second top-level embedding call that branch would
+   * have to wait on.
    */
   private async retrieveDocumentLayer(notebookId: string, query: string, expandedKeywords: string[]) {
     const queryEmbedding = await embeddingService.embedQuerySafe(query);
