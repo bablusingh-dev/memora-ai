@@ -9,6 +9,36 @@ export type NewNotebook = typeof notebooks.$inferInsert;
 export type SourceDocument = typeof sourceDocuments.$inferSelect;
 export type DocumentChunk = typeof documentChunks.$inferSelect;
 
+/** Max length (chars) of a query passed to ParadeDB's BM25 `@@@` operator. */
+const BM25_QUERY_MAX_LENGTH = 200;
+
+/**
+ * Sanitize a query string before it's used with ParadeDB's BM25 `@@@`
+ * operator.
+ *
+ * `@@@` parses its right-hand side with tantivy's query DSL, which gives
+ * special meaning to punctuation like `: + - ! ( ) [ ] { } ^ " ~ * ?` and to
+ * em/en-dashes, and treats `AND`/`OR`/`NOT` as boolean operators. Natural
+ * language queries — especially ones rewritten by an LLM query-enhancer into
+ * long, punctuation-heavy sentences — can trip this parser and raise a
+ * Postgres XX000 error, which silently degrades search to a plain ILIKE
+ * fallback. Stripping DSL-significant characters and capping length keeps
+ * BM25 usable instead of falling back.
+ */
+function sanitizeBM25Query(query: string): string {
+  const cleaned = query
+    .normalize('NFKC')
+    // Keep letters, digits, and whitespace; drop everything else (dashes,
+    // em-dashes, colons, quotes, parens, and other tantivy DSL syntax).
+    .replace(/[^\p{L}\p{N}\s]+/gu, ' ')
+    .replace(/\s+(AND|OR|NOT)\s+/gi, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  return cleaned.length > BM25_QUERY_MAX_LENGTH
+    ? cleaned.slice(0, BM25_QUERY_MAX_LENGTH).trim()
+    : cleaned;
+}
+
 export class NotebookRepository {
   async findById(id: string, userId: string): Promise<Notebook | null> {
     const result = await db
@@ -82,6 +112,20 @@ export class NotebookRepository {
       return result.rows;
     }
 
+    // ParadeDB's `@@@` operator parses its right-hand side with tantivy's
+    // query DSL, which gives special meaning to punctuation such as
+    // `: + - ! ( ) [ ] { } ^ " ~ * ?` and to em/en-dashes. LLM-rewritten
+    // queries (e.g. the query-enhancer's corrected natural-language
+    // sentences) often contain this punctuation and trip the parser,
+    // raising a Postgres XX000 error that silently falls back to the
+    // (lower-relevance) ILIKE search below. Sanitize before the @@@ call so
+    // BM25 stays usable for these queries instead of degrading.
+    const bm25Query = sanitizeBM25Query(cleanQuery);
+
+    if (!bm25Query) {
+      return await this.searchILike(notebookId, cleanQuery, limit);
+    }
+
     try {
       // Search retrieval_content first (context-enriched); fall back to content for old chunks
       const result = await db.execute(sql`
@@ -93,9 +137,9 @@ export class NotebookRepository {
         FROM document_chunks
         WHERE notebook_id = ${notebookId}
           AND (
-            (retrieval_content IS NOT NULL AND retrieval_content @@@ ${cleanQuery})
+            (retrieval_content IS NOT NULL AND retrieval_content @@@ ${bm25Query})
             OR
-            (retrieval_content IS NULL AND content @@@ ${cleanQuery})
+            (retrieval_content IS NULL AND content @@@ ${bm25Query})
           )
         ORDER BY bm25_score DESC
         LIMIT ${limit}
@@ -106,22 +150,30 @@ export class NotebookRepository {
         { error, notebookId, query: cleanQuery },
         'ParadeDB BM25 search failed — falling back to ILIKE substring search'
       );
-      const fallbackResult = await db.execute(sql`
-        SELECT
-          id, source_id, notebook_id, content,
-          COALESCE(retrieval_content, content) AS retrieval_content,
-          heading, section_path, chunk_index,
-          1.0 AS bm25_score
-        FROM document_chunks
-        WHERE notebook_id = ${notebookId}
-          AND (
-            retrieval_content ILIKE ${'%' + cleanQuery + '%'}
-            OR content ILIKE ${'%' + cleanQuery + '%'}
-          )
-        LIMIT ${limit}
-      `);
-      return fallbackResult.rows;
+      return await this.searchILike(notebookId, cleanQuery, limit);
     }
+  }
+
+  /**
+   * Plain substring fallback used when BM25 can't run (empty query after
+   * sanitization) or fails (ParadeDB parse error).
+   */
+  private async searchILike(notebookId: string, query: string, limit: number): Promise<any[]> {
+    const result = await db.execute(sql`
+      SELECT
+        id, source_id, notebook_id, content,
+        COALESCE(retrieval_content, content) AS retrieval_content,
+        heading, section_path, chunk_index,
+        1.0 AS bm25_score
+      FROM document_chunks
+      WHERE notebook_id = ${notebookId}
+        AND (
+          retrieval_content ILIKE ${'%' + query + '%'}
+          OR content ILIKE ${'%' + query + '%'}
+        )
+      LIMIT ${limit}
+    `);
+    return result.rows;
   }
 
   /**
