@@ -4,7 +4,6 @@ import { logger } from './utils/logger.js';
 import { pool, connectDB } from './db/index.js';
 import { GraphFactory } from './providers/graph/graph.factory.js';
 import { MemoryFactory } from './providers/memory/memory.factory.js';
-import { graphWorker } from './services/graph/graph-worker.service.js';
 
 async function bootstrap() {
   logger.info('[Startup] Verifying all required services before accepting traffic...');
@@ -64,9 +63,6 @@ async function bootstrap() {
     );
     logger.info(`[Health] API Health Check available at http://localhost:${env.PORT}/api/v1/health`);
 
-    // Start background Neo4j knowledge graph worker
-    graphWorker.start(10000);
-
     // Self-register this app's functions with Inngest immediately on boot,
     // rather than waiting for the Inngest server's own periodic sync poll or
     // a manual PUT. Best-effort: a failure here just means background
@@ -87,8 +83,6 @@ async function bootstrap() {
 
   const gracefulShutdown = async (signal: string) => {
     logger.info(`Received ${signal}. Initiating graceful shutdown...`);
-
-    graphWorker.stop();
 
     server.close(async () => {
       logger.info('HTTP server closed.');

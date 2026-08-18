@@ -67,7 +67,15 @@ export const documentChunks = pgTable('document_chunks', {
   endPosition: integer('end_position'),
   chunkIndex: integer('chunk_index').notNull(),
   metadata: jsonb('metadata'),
+  // Legacy boolean, superseded by graphIndexStatus below but kept for
+  // backward compatibility (nothing new reads it — see triple-filter.ts /
+  // inngest/functions/graph-extract.ts).
   isGraphIndexed: boolean('is_graph_indexed').default(false).notNull(),
+  // 'pending' | 'processing' | 'indexed' | 'failed'. Drives the event-driven
+  // Inngest graph extraction pipeline instead of the old setInterval poller.
+  graphIndexStatus: text('graph_index_status').default('pending').notNull(),
+  graphIndexError: text('graph_index_error'),
+  graphIndexAttempts: integer('graph_index_attempts').default(0).notNull(),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

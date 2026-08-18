@@ -102,6 +102,22 @@ export async function connectDB() {
           CREATE INDEX IF NOT EXISTS idx_document_chunks_bm25
             ON document_chunks USING bm25 (id, retrieval_content, content)
             WITH (key_field='id');
+
+          -- Event-driven graph extraction pipeline (Inngest) supersedes the
+          -- old is_graph_indexed-boolean + setInterval poller. The boolean
+          -- column is kept (nothing new reads it) so this is purely additive.
+          ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS graph_index_status TEXT NOT NULL DEFAULT 'pending';
+          ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS graph_index_error TEXT;
+          ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS graph_index_attempts INTEGER NOT NULL DEFAULT 0;
+          CREATE INDEX IF NOT EXISTS idx_document_chunks_graph_index_status ON document_chunks(graph_index_status);
+
+          -- One-time data migration: chunks already indexed by the old
+          -- boolean-driven poller shouldn't be reprocessed by the new
+          -- backfill cron just because graph_index_status defaults to
+          -- 'pending' on this newly-added column.
+          UPDATE document_chunks
+            SET graph_index_status = 'indexed'
+            WHERE is_graph_indexed = TRUE AND graph_index_status = 'pending';
         END IF;
 
         IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'source_documents') THEN

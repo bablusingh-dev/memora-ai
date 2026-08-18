@@ -5,6 +5,11 @@ import {
   ingestYoutubeFunction,
   ingestTextFunction,
 } from './ingest-source.js';
+import {
+  graphExtractChunkFunction,
+  graphBackfillFunction,
+  graphCleanupMetaNodesFunction,
+} from './graph-extract.js';
 
 /**
  * Every Inngest function registered by this app. Imported once by the
@@ -17,4 +22,7 @@ export const inngestFunctions = [
   ingestWebsiteFunction,
   ingestYoutubeFunction,
   ingestTextFunction,
+  graphExtractChunkFunction,
+  graphBackfillFunction,
+  graphCleanupMetaNodesFunction,
 ];

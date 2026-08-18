@@ -1,4 +1,4 @@
-import { generateObject } from 'ai';
+import { generateText, Output } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod';
 import { env } from '../config/env.js';
@@ -68,9 +68,11 @@ export class QueryEnhancerService {
         .map((m) => `${m.role.toUpperCase()}: ${m.content}`)
         .join('\n');
 
-      const { object } = await generateObject({
+      // generateObject is deprecated in this SDK version — structured output
+      // now goes through generateText's `output` option instead.
+      const { output } = await generateText({
         model: this.openai('gpt-4o-mini'),
-        schema: QueryEnhancementSchema,
+        output: Output.object({ schema: QueryEnhancementSchema }),
         prompt: `
 You are an expert Search Query Reformulator and Spell Normalizer for a High-Precision RAG System.
 
@@ -92,23 +94,23 @@ TASKS:
       });
 
       const uniqueTerms = Array.from(
-        new Set([object.correctedQuery, ...object.expandedKeywords, trimmed].filter(Boolean))
+        new Set([output.correctedQuery, ...output.expandedKeywords, trimmed].filter(Boolean))
       );
 
       logger.info(
         {
           rawQuery: trimmed,
-          correctedQuery: object.correctedQuery,
-          expandedKeywords: object.expandedKeywords,
+          correctedQuery: output.correctedQuery,
+          expandedKeywords: output.expandedKeywords,
         },
         '[QueryEnhancer] Successfully normalized and expanded query for BM25 RAG'
       );
 
       return {
         rawQuery: trimmed,
-        correctedQuery: object.correctedQuery || trimmed,
-        expandedKeywords: object.expandedKeywords || [],
-        intentSummary: object.intentSummary || trimmed,
+        correctedQuery: output.correctedQuery || trimmed,
+        expandedKeywords: output.expandedKeywords || [],
+        intentSummary: output.intentSummary || trimmed,
         searchTerms: uniqueTerms,
       };
     } catch (error) {

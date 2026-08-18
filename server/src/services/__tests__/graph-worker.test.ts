@@ -1,62 +1,16 @@
 /**
- * Graph worker pipeline unit tests.
+ * Graph extraction pipeline unit tests.
  * Run with: npx tsx --test src/services/__tests__/graph-worker.test.ts
  *
- * Tests the filtering, normalization, and deduplication logic WITHOUT
- * connecting to Neo4j (pure unit tests).
+ * Tests the filtering/normalization logic in triple-filter.ts — the REAL
+ * module used by the graph-extract-chunk Inngest function (see
+ * server/src/inngest/functions/graph-extract.ts) — plus a simulated model of
+ * the deduplication semantics performed by Neo4j's MERGE queries. Pure unit
+ * tests: no Neo4j or OpenAI connection needed.
  */
 import { test, describe } from 'node:test';
 import assert from 'node:assert/strict';
-
-// ---------------------------------------------------------------------------
-// Inline the filtering/normalization logic for isolated unit testing.
-// We test the same logic that lives in GraphWorkerService without needing
-// a Neo4j or OpenAI connection.
-// ---------------------------------------------------------------------------
-
-const DOCUMENT_META_STOPWORDS = new Set([
-  'video', 'videos', 'youtube', 'channel',
-  'user', 'users', 'speaker', 'author', 'developer',
-  'paragraph', 'document', 'text', 'source', 'sources', 'link', 'links', 'page', 'pages',
-  'thing', 'things', 'something', 'anything', 'item', 'items', 'stuff',
-  'step', 'steps', 'point', 'points', 'part', 'parts', 'section', 'sections',
-  'topic', 'topics', 'content', 'information', 'details', 'data', 'overview',
-  'question', 'questions', 'answer', 'answers', 'summary', 'example', 'examples',
-  'case', 'cases', 'issue', 'issues', 'problem', 'problems', 'solution', 'solutions',
-  'minute', 'seconds', 'timestamp', 'chapter', 'slide', 'notes', 'system', 'process', 'method',
-]);
-
-const MIN_CONFIDENCE = 0.60;
-
-function normalize(name: string): string {
-  return name.trim().replace(/\s+/g, ' ').replace(/[.,;:!?]$/, '');
-}
-
-function filterTriples(triples: any[], chunkId: string) {
-  const valid: any[] = [];
-  for (const t of triples) {
-    const src = t.sourceName?.trim();
-    const tgt = t.targetName?.trim();
-    const rel = t.relation?.trim().toUpperCase().replace(/\s+/g, '_');
-    if (!src || !tgt || !rel) continue;
-    if (src.length < 2 || tgt.length < 2) continue;
-    if (src.toLowerCase() === tgt.toLowerCase()) continue;
-    if (DOCUMENT_META_STOPWORDS.has(src.toLowerCase()) || DOCUMENT_META_STOPWORDS.has(tgt.toLowerCase())) continue;
-    if (!t.evidence?.trim()) continue;
-    if ((t.confidence ?? 0) < MIN_CONFIDENCE) continue;
-    valid.push({
-      sourceName: normalize(t.sourceName),
-      sourceType: t.sourceType || 'Concept',
-      relation: rel,
-      targetName: normalize(t.targetName),
-      targetType: t.targetType || 'Concept',
-      evidence: t.evidence,
-      confidence: t.confidence,
-      sourceChunkId: chunkId,
-    });
-  }
-  return valid.sort((a, b) => (b.confidence ?? 0) - (a.confidence ?? 0)).slice(0, 5);
-}
+import { filterTriples } from '../graph/triple-filter.js';
 
 // Canonical name normalization (same logic used in entity upsert)
 function canonicalKey(name: string): string {

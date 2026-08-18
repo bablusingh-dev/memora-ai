@@ -13,7 +13,8 @@ export class MemoryExtractorService {
    *   3. Episodic session summary → episodic (only when substantive)
    *
    * Document knowledge (entities, facts from sources) is handled exclusively
-   * by GraphWorkerService and is intentionally NOT extracted here.
+   * by the graph-extract-chunk Inngest function (see
+   * inngest/functions/graph-extract.ts) and is intentionally NOT extracted here.
    */
   async extractAndPersistMemories(
     userId: string,
