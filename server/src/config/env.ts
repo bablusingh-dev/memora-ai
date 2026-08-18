@@ -33,6 +33,40 @@ const envSchema = z.object({
   // Evaluation & Reflection Loop Configuration
   EVAL_MAX_RETRIES: z.coerce.number().default(3),
   EVAL_CONFIDENCE_THRESHOLD: z.coerce.number().default(0.85),
+
+  // Inngest (self-hosted OSS) — durable async pipeline execution for
+  // ingestion, knowledge-graph extraction, and memory extraction.
+  INNGEST_APP_ID: z.string().default('memora-ai'),
+  INNGEST_BASE_URL: z.string().default('http://localhost:8288'),
+  // `isDev: true` targets Inngest's lightweight throwaway "Dev Server"
+  // (`inngest-cli dev`) and auto-discovers it, bypassing signature
+  // verification. We run the self-hosted, Postgres-backed `inngest start`
+  // server instead (see docker-compose.yml) — that server requires real
+  // signing/event keys unconditionally, so this stays false in every
+  // environment, local dev included.
+  INNGEST_DEV: z.coerce.boolean().default(false),
+  INNGEST_EVENT_KEY: z.string().optional(),
+  INNGEST_SIGNING_KEY: z.string().optional(),
+  // Explicit override for the URL Inngest should use to call *back* into this
+  // app (function registration + step invocation). Left unset, the SDK infers
+  // it from the Host header of whatever request triggers a sync — which is
+  // wrong whenever the caller and the app are on different network
+  // namespaces, e.g. this app running on the host while a self-hosted Inngest
+  // server runs in Docker: the container can't reach the host via
+  // "localhost", it needs "host.docker.internal". Set
+  // INNGEST_SERVE_ORIGIN=http://host.docker.internal:<PORT> for that local
+  // dev topology; leave unset for any deployment where Inngest can already
+  // reach the app directly (both containerized on one network, or a real
+  // public/internal URL).
+  INNGEST_SERVE_ORIGIN: z.string().optional(),
+
+  // Chat context assembly — approximate token budget (char/4 heuristic,
+  // consistent with ChunkingService) enforced when building the LLM system
+  // prompt context from retrieved chunks/graph facts/memory.
+  MAX_CONTEXT_TOKENS: z.coerce.number().default(6000),
+
+  // Per-user concurrent chat-stream bulkhead (in-memory, single-instance).
+  MAX_CONCURRENT_STREAMS_PER_USER: z.coerce.number().default(3),
 });
 
 const parsedEnv = envSchema.safeParse(process.env);

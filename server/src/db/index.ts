@@ -18,8 +18,43 @@ pool.on('error', (err) => {
   logger.error({ err }, 'Unexpected PostgreSQL pool error');
 });
 
+/**
+ * Ensure a dedicated `inngest` database exists on the same Postgres server,
+ * used by the self-hosted Inngest server for its own durable run/step state
+ * (see docker-compose.yml's `inngest` service `--postgres-uri`).
+ *
+ * Deliberately NOT done via a `docker-entrypoint-initdb.d` init script:
+ * those only run once, on a brand-new empty data volume — anyone upgrading
+ * an existing deployment (pre-existing `paradedb_data` volume) would never
+ * get the new database created. `CREATE DATABASE` also cannot run inside a
+ * transaction/DO block, so it can't simply join the `DO $$ ... $$` block
+ * below. Instead this runs a plain statement on every boot and treats
+ * "already exists" (Postgres error code 42P04) as success — safe to repeat,
+ * self-heals both fresh and pre-existing deployments.
+ */
+async function ensureInngestDatabase(): Promise<void> {
+  const client = await pool.connect();
+  try {
+    await client.query('CREATE DATABASE inngest');
+    logger.info('[DB] Created dedicated "inngest" database for the self-hosted Inngest server');
+  } catch (error: any) {
+    if (error?.code === '42P04') {
+      // duplicate_database — already exists, nothing to do.
+      return;
+    }
+    // Non-fatal: the Inngest server will simply fail to start until this is
+    // resolved manually. Ingestion/graph/memory pipelines degrade (see the
+    // soft Inngest reachability check in server.ts) but the API stays up.
+    logger.error({ error }, '[DB] Failed to ensure "inngest" database exists — self-hosted Inngest server may not start');
+  } finally {
+    client.release();
+  }
+}
+
 export async function connectDB() {
   try {
+    await ensureInngestDatabase();
+
     const client = await pool.connect();
     logger.info({ databaseUrl: env.DATABASE_URL.replace(/:[^:@]+@/, ':****@') }, 'Database connection verified');
 

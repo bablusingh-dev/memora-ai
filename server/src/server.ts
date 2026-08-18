@@ -38,6 +38,25 @@ async function bootstrap() {
     process.exit(1);
   }
 
+  // 4. Inngest (self-hosted) — SOFT check only. Unlike the services above,
+  // a transient Inngest outage shouldn't block the app from serving existing
+  // data/chat; it only means background pipelines (ingestion, graph
+  // extraction, memory extraction) can't run until it's back. Requests to
+  // trigger those pipelines will still be accepted and will retry once
+  // Inngest is reachable again (events sent while it's down are logged and
+  // dropped by the SDK, not queued client-side — this check exists purely to
+  // surface that risk loudly at boot rather than as a silent later failure).
+  try {
+    const res = await fetch(`${env.INNGEST_BASE_URL}/health`, { signal: AbortSignal.timeout(3000) });
+    if (res.ok) {
+      logger.info({ baseUrl: env.INNGEST_BASE_URL }, '[Startup] [OK] Inngest server reachable');
+    } else {
+      logger.warn({ baseUrl: env.INNGEST_BASE_URL, status: res.status }, '[Startup] [WARN] Inngest server responded unhealthily — background pipelines may not run until this is resolved');
+    }
+  } catch (err) {
+    logger.warn({ err, baseUrl: env.INNGEST_BASE_URL }, '[Startup] [WARN] Inngest server unreachable — background pipelines (ingestion, graph extraction, memory extraction) will not run until this is resolved. Server will continue starting.');
+  }
+
   // All services healthy — start accepting traffic
   const server = app.listen(env.PORT, () => {
     logger.info(
@@ -47,6 +66,23 @@ async function bootstrap() {
 
     // Start background Neo4j knowledge graph worker
     graphWorker.start(10000);
+
+    // Self-register this app's functions with Inngest immediately on boot,
+    // rather than waiting for the Inngest server's own periodic sync poll or
+    // a manual PUT. Best-effort: a failure here just means background
+    // pipelines won't run until the next sync (matches the soft Inngest
+    // check above) — never blocks/fails server startup.
+    fetch(`http://localhost:${env.PORT}/api/v1/inngest`, { method: 'PUT', signal: AbortSignal.timeout(5000) })
+      .then((res) => {
+        if (res.ok) {
+          logger.info('[Startup] [OK] Registered functions with Inngest');
+        } else {
+          logger.warn({ status: res.status }, '[Startup] [WARN] Inngest function registration returned a non-OK status');
+        }
+      })
+      .catch((err) => {
+        logger.warn({ err }, '[Startup] [WARN] Failed to self-register functions with Inngest — will rely on its periodic sync poll instead');
+      });
   });
 
   const gracefulShutdown = async (signal: string) => {

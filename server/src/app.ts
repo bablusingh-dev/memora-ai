@@ -3,12 +3,15 @@ import cors from 'cors';
 import helmet from 'helmet';
 import pinoHttp from 'pino-http';
 import { clerkMiddleware } from '@clerk/express';
+import { serve as serveInngest } from 'inngest/express';
 import { env } from './config/env.js';
 import { logger } from './utils/logger.js';
 import { requestIdMiddleware } from './middlewares/request-id.middleware.js';
 import { errorMiddleware } from './middlewares/error.middleware.js';
 import apiRouter from './routes/index.js';
 import { NotFoundError } from './utils/api-error.js';
+import { inngest } from './inngest/client.js';
+import { inngestFunctions } from './inngest/functions/index.js';
 
 export const app = express();
 
@@ -70,6 +73,22 @@ app.use(
         statusCode: res.statusCode,
       }),
     },
+  })
+);
+
+// Inngest function registration endpoint — the self-hosted Inngest server
+// calls this to discover/invoke functions. Authenticated via
+// INNGEST_SIGNING_KEY request signatures, not Clerk, so it deliberately sits
+// outside requireAuthMiddleware.
+app.use(
+  '/api/v1/inngest',
+  serveInngest({
+    client: inngest,
+    functions: inngestFunctions,
+    // See INNGEST_SERVE_ORIGIN's doc comment in config/env.ts — required
+    // whenever Inngest can't reach this app via the Host header of whatever
+    // request triggers a sync (e.g. Inngest-in-Docker, app-on-host locally).
+    serveOrigin: env.INNGEST_SERVE_ORIGIN,
   })
 );
 

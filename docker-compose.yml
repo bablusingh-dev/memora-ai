@@ -39,6 +39,43 @@ services:
       timeout: 5s
       retries: 5
 
+  # Inngest: self-hosted OSS durable execution engine for all background
+  # pipelines (source ingestion, knowledge-graph extraction, memory
+  # extraction). Backed by a dedicated `inngest` database on the same
+  # ParadeDB Postgres instance (auto-created on server boot — see
+  # ensureInngestDatabase() in server/src/db/index.ts) rather than the
+  # default ephemeral SQLite, so pipeline state survives container restarts.
+  # No Redis backing for now — single-node Postgres persistence is sufficient
+  # at this app's scale; add `--redis-uri` later if horizontally scaling.
+  inngest:
+    image: inngest/inngest:latest
+    container_name: memora_inngest
+    restart: unless-stopped
+    command:
+      - "inngest"
+      - "start"
+      - "--postgres-uri"
+      - "postgres://postgres:postgrespassword@paradedb:5432/inngest?sslmode=disable"
+    ports:
+      - "8288:8288" # Dashboard UI + Event API + Function registration
+      - "8289:8289" # Connect WebSocket gateway
+    environment:
+      # Matches server/src/config/env.ts defaults for local development.
+      # Set real, matching INNGEST_SIGNING_KEY/INNGEST_EVENT_KEY values here
+      # and in server/.env (with INNGEST_DEV=false) for any non-local
+      # deployment — dev mode (the default) disables signature verification.
+      - INNGEST_SIGNING_KEY=${INNGEST_SIGNING_KEY:-}
+      - INNGEST_EVENT_KEY=${INNGEST_EVENT_KEY:-}
+    depends_on:
+      paradedb:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8288/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
 volumes:
   paradedb_data:
   neo4j_data:
