@@ -48,21 +48,42 @@ export class MemoryCoordinatorService {
       knowledgeChunks,
     ] = await Promise.all([
       // CONVERSATION layer — last 6 turns from Postgres
-      this.chatRepo.findByNotebookId(notebookId, userId).catch(() => []),
+      this.chatRepo.findByNotebookId(notebookId, userId).catch((error) => {
+        logger.error({ error, notebookId, userId }, 'CONVERSATION layer retrieval failed in memory coordinator');
+        return [];
+      }),
       // USER layer — profile declarations
-      this.memoryProvider.search(query, { userId, category: 'user_profile', limit: 3 }).catch(() => []),
+      this.memoryProvider.search(query, { userId, category: 'user_profile', limit: 3 }).catch((error) => {
+        logger.error({ error, userId, query, category: 'user_profile' }, 'USER layer retrieval failed in memory coordinator');
+        return [];
+      }),
       // USER layer — semantic facts from past sessions
-      this.memoryProvider.search(query, { userId, category: 'semantic', limit: 4 }).catch(() => []),
+      this.memoryProvider.search(query, { userId, category: 'semantic', limit: 4 }).catch((error) => {
+        logger.error({ error, userId, query, category: 'semantic' }, 'USER layer retrieval failed in memory coordinator');
+        return [];
+      }),
       // USER layer — episodic session summaries
-      this.memoryProvider.search(query, { userId, category: 'episodic', limit: 3 }).catch(() => []),
+      this.memoryProvider.search(query, { userId, category: 'episodic', limit: 3 }).catch((error) => {
+        logger.error({ error, userId, query, category: 'episodic' }, 'USER layer retrieval failed in memory coordinator');
+        return [];
+      }),
       // USER layer — procedural formatting rules
-      this.memoryProvider.search(query, { userId, category: 'procedural', limit: 2 }).catch(() => []),
+      this.memoryProvider.search(query, { userId, category: 'procedural', limit: 2 }).catch((error) => {
+        logger.error({ error, userId, query, category: 'procedural' }, 'USER layer retrieval failed in memory coordinator');
+        return [];
+      }),
       // GRAPH layer — query-driven entity neighbor retrieval
       this.graphProvider
         .getNeighborsByQuery(entityCandidates, notebookId, relevantRelTypes, 2)
-        .catch(() => ({ entities: [], relations: [] })),
+        .catch((error) => {
+          logger.error({ error, notebookId, entityCandidates }, 'GRAPH layer retrieval failed in memory coordinator');
+          return { entities: [], relations: [] };
+        }),
       // DOCUMENT layer — BM25 knowledge chunks (searches retrieval_content)
-      this.notebookRepo.searchBM25(notebookId, query, 5).catch(() => []),
+      this.notebookRepo.searchBM25(notebookId, query, 5).catch((error) => {
+        logger.error({ error, notebookId, query }, 'DOCUMENT layer retrieval failed in memory coordinator');
+        return [];
+      }),
     ]);
 
     // --- Map USER layer ---

@@ -1,6 +1,7 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { notebooks, sourceDocuments, documentChunks } from '../db/schema.js';
+import { logger } from '../utils/logger.js';
 
 export type Notebook = typeof notebooks.$inferSelect;
 export type NewNotebook = typeof notebooks.$inferInsert;
@@ -100,6 +101,10 @@ export class NotebookRepository {
       `);
       return result.rows;
     } catch (error) {
+      logger.error(
+        { error, notebookId, query: cleanQuery },
+        'ParadeDB BM25 search failed — falling back to ILIKE substring search'
+      );
       const fallbackResult = await db.execute(sql`
         SELECT
           id, source_id, notebook_id, content,

@@ -47,7 +47,26 @@ export async function connectDB() {
         IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'document_chunks') THEN
           ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS is_graph_indexed BOOLEAN NOT NULL DEFAULT FALSE;
           CREATE INDEX IF NOT EXISTS idx_document_chunks_graph_indexed ON document_chunks(is_graph_indexed);
-          CREATE INDEX IF NOT EXISTS idx_document_chunks_bm25 ON document_chunks USING bm25 (id, content) WITH (key_field='id');
+
+          -- BM25 index must cover retrieval_content (the column actually queried by
+          -- searchBM25 — see notebook.repository.ts) as well as content, the legacy
+          -- fallback column for chunks ingested before retrieval_content existed.
+          -- If an older index only covers content, drop and rebuild it here so
+          -- every deploy self-heals instead of silently falling back to ILIKE.
+          IF EXISTS (
+            SELECT 1 FROM pg_indexes
+            WHERE tablename = 'document_chunks' AND indexname = 'idx_document_chunks_bm25'
+          ) AND NOT EXISTS (
+            SELECT 1 FROM pg_indexes
+            WHERE tablename = 'document_chunks' AND indexname = 'idx_document_chunks_bm25'
+              AND indexdef LIKE '%retrieval_content%'
+          ) THEN
+            DROP INDEX idx_document_chunks_bm25;
+          END IF;
+
+          CREATE INDEX IF NOT EXISTS idx_document_chunks_bm25
+            ON document_chunks USING bm25 (id, retrieval_content, content)
+            WITH (key_field='id');
         END IF;
       END $$;
     `);
