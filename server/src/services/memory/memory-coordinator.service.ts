@@ -53,7 +53,7 @@ export class MemoryCoordinatorService {
   ): Promise<CognitiveMemoryBundle> {
     const [independent, dependent] = await Promise.all([
       this.retrieveQueryIndependentMemories(notebookId, userId, query),
-      this.retrieveQueryDependentMemories(notebookId, userId, query, expandedKeywords),
+      this.retrieveQueryDependentMemories(notebookId, query, expandedKeywords),
     ]);
     return this.buildBundle(notebookId, userId, query, independent, dependent);
   }
@@ -102,11 +102,12 @@ export class MemoryCoordinatorService {
    * correction and keyword expansion (lexical BM25 matching and named-entity
    * extraction are both sensitive to exact wording in a way mem0's semantic
    * search isn't), so callers should await query enhancement before calling
-   * this — unlike retrieveQueryIndependentMemories.
+   * this — unlike retrieveQueryIndependentMemories. Neither layer is
+   * user-scoped (documents/graph belong to the notebook, not the caller),
+   * so unlike the independent half, this takes no userId.
    */
   async retrieveQueryDependentMemories(
     notebookId: string,
-    userId: string,
     query: string,
     expandedKeywords: string[] = []
   ): Promise<QueryDependentMemories> {

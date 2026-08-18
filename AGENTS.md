@@ -75,8 +75,8 @@ When working on this codebase, **ALL AI AGENTS MUST ADHERE TO THE FOLLOWING GUID
 > **CRITICAL RULE**: Drizzle ORM is used for table schemas and type-safe CRUD operations, while **ParadeDB (`pg_search`)** is used for BM25 algorithmic full-text search.
 
 ### Rules for Database Operations:
-1. **Drizzle Schema Cleanliness**: Keep `server/src/db/schema.ts` focused on standard PostgreSQL table definitions (`users`, `notebooks`, `source_documents`, `document_chunks`, `notes`), column types, foreign keys, and indexes. Do NOT attempt to express ParadeDB-specific custom index types (`USING bm25`) directly in Drizzle schema definitions if Drizzle generator fails to parse them.
-2. **Database Connection Verification**: `server/src/db/index.ts` exposes `connectDB()` and pool connection listeners that log database connection events using Pino logger.
+1. **Drizzle Schema Cleanliness**: Keep `server/src/db/schema.ts` focused on standard PostgreSQL table definitions (`users`, `notebooks`, `source_documents`, `document_chunks`, `notes`, `chat_messages`), column types, foreign keys, and indexes. Do NOT attempt to express ParadeDB-specific custom index types (`USING bm25`, `USING hnsw`) directly in Drizzle schema definitions if Drizzle generator fails to parse them — those live in the raw-SQL self-heal block in `server/src/db/index.ts` instead (see rule 2). The one exception is the pgvector `embedding` column itself, which Drizzle *can* express via `customType` (see the `vector()` helper at the top of `schema.ts`) — only the index type needs raw SQL.
+2. **Database Connection Verification**: `server/src/db/index.ts` exposes `connectDB()` and pool connection listeners that log database connection events using Pino logger. It also runs a `DO $$ ... $$` block on every boot that self-heals schema drift (new columns, indexes) — this repo has no automatic migration runner wired into boot (drizzle-kit migrations exist under `server/src/db/migrations/` for history/versioning, generated via `npm run db:generate`, but must be applied manually with `npm run db:migrate`; they are not run automatically). When adding a column/index that the app depends on at runtime, add it to both: the `DO $$` block (so it's live immediately) and generate a matching migration (so history stays in sync).
 3. **Encapsulate BM25 Search in Repositories**: All ParadeDB BM25 search queries must be executed within `server/src/repositories/` using Drizzle's `sql` template literal tag.
    - **Example BM25 Query**:
      ```ts
@@ -108,12 +108,20 @@ The backend enforces a strict **Controller -> Service -> Repository** directiona
 - **Clerk User Sync Webhook (`POST /api/v1/webhooks/clerk`)**:
   - Svix webhook signature verification handles `user.created`, `user.updated`, and `user.deleted` events.
   - Automatically syncs user profile changes to the local `users` table via `UserRepository.upsertUser()`.
-- **Controllers (`src/controllers/`)**: Responsible ONLY for parsing HTTP requests, extracting `userId`, validating request bodies/queries (using Zod), calling Services, and returning standard API JSON responses via `ApiResponse`.
-- **Services (`src/services/`)**: Responsible for business logic, chunking algorithms, calling LLMs, coordinating RAG search, handling webhooks, and managing data processing flows.
+- **Controllers (`src/controllers/`)**: Responsible ONLY for parsing HTTP requests, extracting `userId`, validating request bodies/queries (using Zod), calling Services, and returning standard API JSON responses via `ApiResponse`. Ingestion controllers return `202 Accepted` with the resource still `processing` — they hand off to Inngest rather than doing the work inline (see below).
+- **Services (`src/services/`)**: Responsible for business logic, chunking algorithms, calling LLMs, coordinating RAG search, handling webhooks, and managing data processing flows. Service methods called from HTTP request handlers must stay fast (sync validation + a DB write + an Inngest event send) — anything slower or retry-worthy (parsing, LLM calls, external API calls) belongs in an Inngest function instead, see below.
 - **Repositories (`src/repositories/`)**: Responsible ONLY for data access, database queries (Drizzle ORM & ParadeDB SQL scoped by `userId`), and data persistence.
 
+### Background Jobs (`server/src/inngest/`)
+All work that (a) doesn't need to finish before the HTTP response, (b) should survive a process restart, or (c) needs automatic retries, goes through an **Inngest function** — never a raw `setInterval`/`setTimeout` poller and never an unawaited fire-and-forget promise. Both of those were the actual pre-Inngest patterns in this codebase and both silently lost work on process restart; don't reintroduce them.
+- **Client**: `server/src/inngest/client.ts` — the single `Inngest` instance, configured for the self-hosted server in `docker-compose.yml`.
+- **Events**: `server/src/inngest/events.ts` — every event is a typed `EventType` (via `eventType(name, { schema })` with a zod schema), doubling as a function trigger and a typed factory (`someEvent.create({...})`) for `inngest.send()`. Add new event shapes here, not inline in a function file.
+- **Functions**: `server/src/inngest/functions/*.ts`, registered in `server/src/inngest/functions/index.ts` (the only registration point — `serve()` in `app.ts` imports from there). Each function should: use `step.run(id, fn)` for each retryable unit of work, set `retries` explicitly, use `idempotency` keyed on the triggering entity's ID where redelivery could otherwise double-process something, and provide `onFailure` to mark the originating row (`error`/`failed`) when a durable entity (a source, a chunk) is involved — never leave a row silently stuck on `processing`/`pending` forever.
+- **Cron functions** (backfills, cleanup) are the safety net, not the primary path — e.g. `embedding-backfill`/`graph-backfill` catch anything whose event-driven fan-out was lost; they shouldn't be the only way work gets done.
+- Structured-object LLM calls in this codebase use `generateText({ output: Output.object({ schema }) })` from `ai`, not `generateObject` — the latter is deprecated in the installed SDK version. Verify current deprecation status against `node_modules/ai/dist/index.d.ts` before assuming an API is still current; SDKs move fast.
+
 ### Error Handling & Standard API Envelope
-1. **Throw Custom Errors**: In Services or Repositories, throw instances of `ApiError` (`BadRequestError`, `NotFoundError`, `UnauthorizedError`, `ForbiddenError`, `ConflictError`, `InternalServerError`).
+1. **Throw Custom Errors**: In Services or Repositories, throw instances of `ApiError` (`BadRequestError`, `NotFoundError`, `UnauthorizedError`, `ForbiddenError`, `ConflictError`, `TooManyRequestsError`, `InternalServerError`).
 2. **Centralized Error Middleware**: Do NOT wrap every controller line in try/catch blocks manually unless necessary for specific cleanup. Wrap route handlers with `asyncHandler` and let `server/src/middlewares/error.middleware.ts` catch and format errors.
 3. **Standard Response Format**:
    All API endpoints MUST respond with the unified structure:
@@ -155,4 +163,9 @@ cd server && npm run build
 
 # Test Client Build & Type Checking
 cd client && npm run build
+
+# Run server unit tests (chunking, graph-triple-filter)
+cd server && npx tsx --test src/services/__tests__/*.test.ts
 ```
+
+For anything touching ingestion, graph extraction, memory extraction, or hybrid retrieval, also verify against the live stack (`docker compose up -d`, `npm run dev`, watch the Inngest dashboard at `http://localhost:8288`) — these are async pipelines where a clean build doesn't guarantee the runtime behavior (retries, dead-lettering, event wiring) is correct.

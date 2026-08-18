@@ -7,7 +7,6 @@ import { ChatRepository } from '../repositories/chat.repository.js';
 import { MemoryCoordinatorService } from './memory/memory-coordinator.service.js';
 import { ContextBuilderService } from './context-builder.service.js';
 import { GraphFactory } from '../providers/graph/graph.factory.js';
-import { MemoryFactory } from '../providers/memory/memory.factory.js';
 import { FirecrawlService } from './firecrawl.service.js';
 import { RetrievalTracer } from '../utils/retrieval-trace.js';
 import { retryWithBackoff } from '../utils/retry.js';
@@ -27,7 +26,6 @@ export class AgentService {
   private contextBuilder: ContextBuilderService;
   private firecrawlService: FirecrawlService;
   private graphProvider = GraphFactory.getProvider();
-  private memoryProvider = MemoryFactory.getProvider();
 
   // In-memory, single-instance bulkhead against one user opening more
   // concurrent chat streams than env.MAX_CONCURRENT_STREAMS_PER_USER — each
@@ -175,7 +173,6 @@ export class AgentService {
     // doc comment for why this split is safe/correct).
     const dependentMemories = await this.memoryCoordinator.retrieveQueryDependentMemories(
       notebookId,
-      userId,
       queryForSearch,
       enhanced.expandedKeywords || []
     );
