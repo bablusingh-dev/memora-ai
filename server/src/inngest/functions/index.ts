@@ -10,6 +10,7 @@ import {
   graphBackfillFunction,
   graphCleanupMetaNodesFunction,
 } from './graph-extract.js';
+import { embeddingBackfillFunction } from './embedding-backfill.js';
 
 /**
  * Every Inngest function registered by this app. Imported once by the
@@ -25,4 +26,5 @@ export const inngestFunctions = [
   graphExtractChunkFunction,
   graphBackfillFunction,
   graphCleanupMetaNodesFunction,
+  embeddingBackfillFunction,
 ];

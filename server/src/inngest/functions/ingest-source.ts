@@ -7,10 +7,11 @@ import {
   sourceTextRequested,
   graphChunkCreated,
 } from '../events.js';
-import { SourceRepository, UNIQUE_VIOLATION } from '../../repositories/source.repository.js';
+import { SourceRepository, UNIQUE_VIOLATION, NewDocumentChunk } from '../../repositories/source.repository.js';
 import { ChunkingService } from '../../services/chunking.service.js';
 import { FirecrawlService } from '../../services/firecrawl.service.js';
 import { YoutubeService } from '../../services/youtube.service.js';
+import { embeddingService } from '../../services/embedding.service.js';
 import { sha256Hex } from '../../utils/content-hash.js';
 import { logger } from '../../utils/logger.js';
 
@@ -34,7 +35,7 @@ async function chunkPersistAndFanOut(
 
   await step.run('mark-chunking', () => sourceRepo.updateSource(sourceId, { stage: 'chunking' }));
 
-  const dbChunks = await step.run('chunk-content', () =>
+  const dbChunks: NewDocumentChunk[] = await step.run('chunk-content', () =>
     ChunkingService.createChunks(rawText, title, fileType).map((c) => ({
       sourceId,
       notebookId,
@@ -51,6 +52,29 @@ async function chunkPersistAndFanOut(
     }))
   );
 
+  await step.run('mark-embedding', () => sourceRepo.updateSource(sourceId, { stage: 'embedding' }));
+
+  // Soft-fail: an embeddings-API hiccup shouldn't block the whole source
+  // from becoming ready — chunks stay fully searchable via BM25 immediately,
+  // and the embedding-backfill Inngest cron (embedding-backfill.ts) picks up
+  // anything left with a null embedding.
+  const embeddings = await step.run('generate-embeddings', async () => {
+    try {
+      return await embeddingService.embedMany(dbChunks.map((c) => c.retrievalContent || c.content));
+    } catch (err) {
+      logger.warn(
+        { err, sourceId },
+        '[IngestSource] Embedding generation failed — chunks will be BM25-only searchable until embedding-backfill retries them'
+      );
+      return [];
+    }
+  });
+
+  const chunksWithEmbeddings = dbChunks.map((c, i) => ({
+    ...c,
+    embedding: embeddings[i] ?? null,
+  }));
+
   const chunkIds: string[] = await step.run('persist-chunks', async () => {
     // Idempotent against a full function-level retry (exhausted step
     // retries -> Inngest starts a fresh run): clear anything a previous
@@ -59,7 +83,7 @@ async function chunkPersistAndFanOut(
     // single run, so this delete+insert only ever actually executes once
     // per successful run — the safeguard is for the retry-after-failure case.
     await sourceRepo.deleteChunksBySourceId(sourceId);
-    return sourceRepo.insertChunksReturningIds(dbChunks);
+    return sourceRepo.insertChunksReturningIds(chunksWithEmbeddings);
   });
 
   await step.run('mark-source-ready', () =>

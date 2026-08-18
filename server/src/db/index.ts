@@ -77,6 +77,11 @@ export async function connectDB() {
           CREATE INDEX IF NOT EXISTS idx_chat_messages_notebook_id ON chat_messages(notebook_id);
           ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS is_graph_indexed BOOLEAN NOT NULL DEFAULT FALSE;
           CREATE INDEX IF NOT EXISTS idx_chat_messages_graph_indexed ON chat_messages(is_graph_indexed);
+
+          -- Composite index for the bounded "last N turns" query the memory
+          -- coordinator uses (ORDER BY created_at DESC LIMIT N per notebook)
+          -- instead of fetching a notebook's entire chat history every turn.
+          CREATE INDEX IF NOT EXISTS idx_chat_messages_notebook_created ON chat_messages(notebook_id, created_at);
         END IF;
 
         IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'document_chunks') THEN
@@ -118,6 +123,19 @@ export async function connectDB() {
           UPDATE document_chunks
             SET graph_index_status = 'indexed'
             WHERE is_graph_indexed = TRUE AND graph_index_status = 'pending';
+
+          -- Hybrid retrieval: pgvector embedding column + HNSW cosine index.
+          -- Bundled in the paradedb/paradedb image; guarded in a nested block
+          -- so an environment without it degrades to BM25-only (searchHybrid
+          -- catches the resulting query errors) instead of failing boot.
+          BEGIN
+            CREATE EXTENSION IF NOT EXISTS vector;
+            ALTER TABLE document_chunks ADD COLUMN IF NOT EXISTS embedding vector(1536);
+            CREATE INDEX IF NOT EXISTS idx_document_chunks_embedding
+              ON document_chunks USING hnsw (embedding vector_cosine_ops);
+          EXCEPTION WHEN OTHERS THEN
+            RAISE WARNING 'pgvector unavailable — hybrid retrieval will degrade to BM25-only: %', SQLERRM;
+          END;
         END IF;
 
         IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'source_documents') THEN

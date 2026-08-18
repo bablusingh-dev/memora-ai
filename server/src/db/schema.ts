@@ -1,4 +1,27 @@
-import { pgTable, uuid, text, timestamp, integer, jsonb, boolean } from 'drizzle-orm/pg-core';
+import { pgTable, uuid, text, timestamp, integer, jsonb, boolean, customType } from 'drizzle-orm/pg-core';
+
+/**
+ * pgvector's `vector(n)` type has no native drizzle-orm/pg-core column type
+ * (same reason ParadeDB's `bm25` index type isn't expressed in schema.ts —
+ * see AGENTS.md rule #1). node-postgres has no built-in parser for it either,
+ * so it round-trips as the literal text pgvector accepts/emits: `[0.1,0.2,...]`.
+ */
+const vector = (dimensions: number) =>
+  customType<{ data: number[]; driverData: string }>({
+    dataType() {
+      return `vector(${dimensions})`;
+    },
+    toDriver(value: number[]): string {
+      return `[${value.join(',')}]`;
+    },
+    fromDriver(value: string): number[] {
+      return value
+        .slice(1, -1)
+        .split(',')
+        .filter(Boolean)
+        .map(Number);
+    },
+  });
 
 export const users = pgTable('users', {
   id: text('id').primaryKey(), // Clerk User ID e.g. user_2P3...
@@ -76,6 +99,11 @@ export const documentChunks = pgTable('document_chunks', {
   graphIndexStatus: text('graph_index_status').default('pending').notNull(),
   graphIndexError: text('graph_index_error'),
   graphIndexAttempts: integer('graph_index_attempts').default(0).notNull(),
+  // OpenAI text-embedding-3-small (1536 dims). Nullable — populated by the
+  // ingestion pipeline's embedding step and backfilled for older chunks by
+  // the embedding-backfill Inngest cron. Null means "not yet embedded", not
+  // "embedding failed" — searchHybrid falls back to BM25-only per chunk.
+  embedding: vector(1536)('embedding'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });
 

@@ -1,4 +1,4 @@
-import { eq, sql } from 'drizzle-orm';
+import { eq, isNull, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { documentChunks, notebooks } from '../db/schema.js';
 
@@ -18,11 +18,17 @@ export interface PendingGraphIndexChunk {
   userId: string;
 }
 
+export interface ChunkMissingEmbedding {
+  id: string;
+  content: string;
+  retrievalContent: string | null;
+}
+
 /**
  * document_chunks lifecycle concerns that don't belong in SourceRepository
  * (chunk creation/persistence) or NotebookRepository (BM25/vector search) —
- * specifically the knowledge-graph indexing state machine driven by the
- * event-driven Inngest pipeline in inngest/functions/graph-extract.ts.
+ * the knowledge-graph indexing state machine (inngest/functions/graph-extract.ts)
+ * and the embedding backfill (inngest/functions/embedding-backfill.ts).
  */
 export class DocumentChunkRepository {
   /**
@@ -46,6 +52,24 @@ export class DocumentChunkRepository {
       .where(eq(documentChunks.id, chunkId))
       .limit(1);
     return result[0] || null;
+  }
+
+  /**
+   * Chunks with no embedding yet — either the embedding step failed/was
+   * skipped during ingestion (see ingest-source.ts's soft-fail), or they
+   * were ingested before hybrid search existed. Used by the
+   * embedding-backfill cron.
+   */
+  async findMissingEmbeddings(limit = 200): Promise<ChunkMissingEmbedding[]> {
+    return db
+      .select({ id: documentChunks.id, content: documentChunks.content, retrievalContent: documentChunks.retrievalContent })
+      .from(documentChunks)
+      .where(isNull(documentChunks.embedding))
+      .limit(limit);
+  }
+
+  async updateEmbedding(chunkId: string, embedding: number[]): Promise<void> {
+    await db.update(documentChunks).set({ embedding }).where(eq(documentChunks.id, chunkId));
   }
 
   /**

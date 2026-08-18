@@ -2,6 +2,7 @@ import { MemoryFactory } from '../../providers/memory/memory.factory.js';
 import { GraphFactory } from '../../providers/graph/graph.factory.js';
 import { NotebookRepository } from '../../repositories/notebook.repository.js';
 import { ChatRepository } from '../../repositories/chat.repository.js';
+import { embeddingService } from '../embedding.service.js';
 import {
   CognitiveMemoryBundle,
   SemanticFactMemory,
@@ -25,13 +26,18 @@ export class MemoryCoordinatorService {
    * Layer separation:
    *   CONVERSATION — recent chat turns (always from Postgres, not mem0)
    *   USER         — user profile, episodic events, procedural rules (from mem0)
-   *   DOCUMENT     — BM25 knowledge chunks (from ParadeDB)
+   *   DOCUMENT     — hybrid BM25 + pgvector knowledge chunks (from ParadeDB)
    *   GRAPH        — entity relationships (from Neo4j, query-driven)
+   *
+   * @param expandedKeywords Query-enhancer keyword variants (see
+   *   QueryEnhancerService) fed into the DOCUMENT layer's multi-query BM25
+   *   fusion alongside the primary query.
    */
   async retrieveAllMemories(
     notebookId: string,
     userId: string,
-    query: string
+    query: string,
+    expandedKeywords: string[] = []
   ): Promise<CognitiveMemoryBundle> {
     logger.info({ notebookId, userId, query }, 'Coordinating multi-layer memory retrieval');
 
@@ -79,8 +85,12 @@ export class MemoryCoordinatorService {
           logger.error({ error, notebookId, entityCandidates }, 'GRAPH layer retrieval failed in memory coordinator');
           return { entities: [], relations: [] };
         }),
-      // DOCUMENT layer — BM25 knowledge chunks (searches retrieval_content)
-      this.notebookRepo.searchBM25(notebookId, query, 5).catch((error) => {
+      // DOCUMENT layer — hybrid BM25 + pgvector knowledge chunks (searches
+      // retrieval_content). Query embedding is generated here, scoped to
+      // this branch, so a slow/failed embeddings call only affects the
+      // document layer's own latency/fallback rather than blocking the
+      // other branches running in parallel alongside it.
+      this.retrieveDocumentLayer(notebookId, query, expandedKeywords).catch((error) => {
         logger.error({ error, notebookId, query }, 'DOCUMENT layer retrieval failed in memory coordinator');
         return [];
       }),
@@ -198,6 +208,19 @@ export class MemoryCoordinatorService {
       proceduralRules: procedural,
       temporalEvents,
     };
+  }
+
+  /**
+   * DOCUMENT layer: embed the query (soft-fail — null on error, degrading to
+   * BM25-only), then run hybrid BM25 + pgvector retrieval. Bundled as one
+   * async unit so it's a single parallel branch in retrieveAllMemories'
+   * Promise.all rather than adding a second top-level embedding call that
+   * other branches would have to wait on.
+   */
+  private async retrieveDocumentLayer(notebookId: string, query: string, expandedKeywords: string[]) {
+    const queryEmbedding = await embeddingService.embedQuerySafe(query);
+    const queries = Array.from(new Set([query, ...expandedKeywords].filter(Boolean)));
+    return this.notebookRepo.searchHybrid(notebookId, queries, queryEmbedding, 5);
   }
 
   /**

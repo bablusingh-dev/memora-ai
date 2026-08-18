@@ -15,6 +15,7 @@ import { db } from '../db/index.js';
 import { notes } from '../db/schema.js';
 import { logger } from '../utils/logger.js';
 import { queryEnhancer } from './query-enhancer.service.js';
+import { embeddingService } from './embedding.service.js';
 import { BadRequestError } from '../utils/api-error.js';
 
 export class AgentService {
@@ -106,7 +107,12 @@ export class AgentService {
     );
 
     // 2. Multi-layer memory retrieval
-    const memoryBundle = await this.memoryCoordinator.retrieveAllMemories(notebookId, userId, queryForSearch);
+    const memoryBundle = await this.memoryCoordinator.retrieveAllMemories(
+      notebookId,
+      userId,
+      queryForSearch,
+      enhanced.expandedKeywords || []
+    );
 
     // Record trace data
     tracer.recordBM25(memoryBundle.knowledgeChunks.map((c) => ({
@@ -153,10 +159,10 @@ ${formattedContext.userProfileContext ? `\n${formattedContext.userProfileContext
 ${formattedContext.proceduralContext ? `\n${formattedContext.proceduralContext}\n` : ''}
 
 [RETRIEVED CONTEXT]
-${formattedContext.formattedContext || 'No relevant context retrieved yet — call searchParadeDB or queryKnowledgeGraph to retrieve sources.'}
+${formattedContext.formattedContext || 'No relevant context retrieved yet — call searchKnowledgeBase or queryKnowledgeGraph to retrieve sources.'}
 
 INSTRUCTIONS:
-1. ALWAYS call 'searchParadeDB' first when the user asks about their notebook content, files, or topics. This is your primary retrieval tool.
+1. ALWAYS call 'searchKnowledgeBase' first when the user asks about their notebook content, files, or topics. This is your primary retrieval tool.
 2. Call 'queryKnowledgeGraph' when the question involves relationships, connections, "who created X", "what is related to Y", or dependency chains.
 3. Ground every statement in retrieved sources. Do NOT hallucinate or invent facts.
 4. When citing sources, reference the document section and chunk number, e.g. [Source: Authentication > JWT, Chunk #3].
@@ -168,17 +174,18 @@ INSTRUCTIONS:
     // -------------------------------------------------------------------------
     // Tools
     // -------------------------------------------------------------------------
-    const searchParadeDB = (tool as any)({
-      description: 'Search document text chunks indexed in ParadeDB using Multi-Query BM25 search. Call this first for any question about notebook content.',
+    const searchKnowledgeBase = (tool as any)({
+      description: 'Search notebook document chunks using hybrid retrieval — BM25 lexical search fused with pgvector semantic search via Reciprocal Rank Fusion. Call this first for any question about notebook content; also call it again with a different/refined query if the context above turns out insufficient or the conversation shifts topic.',
       parameters: z.object({
         query: z.string().optional().describe('Search query keywords or question.'),
         topK: z.number().optional().default(5).describe('Number of top relevant chunks to retrieve'),
       }),
       execute: async ({ query, topK }: { query?: string; topK?: number }) => {
         const cleanQuery = query?.trim() || queryForSearch;
-        logger.info({ notebookId, cleanQuery, topK }, 'Agent: searchParadeDB tool call');
+        logger.info({ notebookId, cleanQuery, topK }, 'Agent: searchKnowledgeBase tool call');
         const queryTerms = Array.from(new Set([cleanQuery, ...(enhanced.expandedKeywords || [])].filter(Boolean)));
-        const chunks = await this.notebookRepo.searchMultiQueryBM25(notebookId, queryTerms, topK || 5);
+        const queryEmbedding = await embeddingService.embedQuerySafe(cleanQuery);
+        const chunks = await this.notebookRepo.searchHybrid(notebookId, queryTerms, queryEmbedding, topK || 5);
         return {
           query: cleanQuery,
           correctedQuery: enhanced.correctedQuery,
@@ -191,7 +198,7 @@ INSTRUCTIONS:
             heading: c.heading,
             sectionPath: c.section_path,
             chunkIndex: c.chunk_index,
-            bm25Score: c.bm25_score,
+            relevanceScore: c.bm25_score,
           })),
         };
       },
@@ -282,7 +289,7 @@ INSTRUCTIONS:
 
     const modelMessages = this.convertToModelMessages(messages);
 
-    const activeTools: Record<string, any> = { searchParadeDB, queryKnowledgeGraph, createNotebookNote };
+    const activeTools: Record<string, any> = { searchKnowledgeBase, queryKnowledgeGraph, createNotebookNote };
     if (isWebSearchEnabled) {
       activeTools.searchWeb = searchWeb;
       activeTools.browseWebPage = browseWebPage;
