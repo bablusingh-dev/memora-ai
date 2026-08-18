@@ -42,6 +42,26 @@ export class ApiResponse {
     });
   }
 
+  /**
+   * For requests that kick off async work (Inngest-driven ingestion) rather
+   * than completing it synchronously — the response body describes the
+   * accepted/queued resource, not its final state.
+   */
+  public static accepted<T>({
+    res,
+    data,
+    message = 'Accepted for processing',
+    meta,
+  }: Omit<ApiResponseOptions<T>, 'statusCode'>): Response {
+    return ApiResponse.success({
+      res,
+      statusCode: StatusCodes.ACCEPTED,
+      data,
+      message,
+      meta,
+    });
+  }
+
   public static error({
     res,
     statusCode = StatusCodes.INTERNAL_SERVER_ERROR,

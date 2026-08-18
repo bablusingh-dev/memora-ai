@@ -27,9 +27,19 @@ export const sourceDocuments = pgTable('source_documents', {
     .references(() => notebooks.id, { onDelete: 'cascade' })
     .notNull(),
   title: text('title').notNull(),
-  fileType: text('file_type').notNull(), // 'pdf' | 'web' | 'text'
+  fileType: text('file_type').notNull(), // 'pdf' | 'web' | 'youtube' | 'text'
   fileUrl: text('file_url'),
-  status: text('status').default('processing').notNull(), // 'processing' | 'ready' | 'error'
+  status: text('status').default('processing').notNull(), // 'processing' | 'ready' | 'error' | 'duplicate'
+  // sha256 of the ingested content (file bytes / scraped markdown / transcript
+  // text / raw text). Backed by a partial unique index (notebookId, contentHash)
+  // — see db/index.ts — so exact re-ingestion is rejected rather than silently
+  // duplicating chunks.
+  contentHash: text('content_hash'),
+  // Populated only when status = 'error' | 'duplicate'.
+  errorMessage: text('error_message'),
+  // Coarse pipeline progress for the client's polling UI, e.g. 'queued' |
+  // 'extracting' | 'persisting'. Null once status leaves 'processing'.
+  stage: text('stage'),
   metadata: jsonb('metadata'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 });

@@ -35,7 +35,11 @@ export interface SourceDocument {
   title: string;
   fileType: 'pdf' | 'web' | 'youtube' | 'text';
   fileUrl?: string;
-  status: 'processing' | 'ready' | 'error';
+  status: 'processing' | 'ready' | 'error' | 'duplicate';
+  /** Set only when status is 'error' or 'duplicate'. */
+  errorMessage?: string | null;
+  /** Coarse pipeline progress while status is 'processing', e.g. 'queued' | 'extracting' | 'chunking'. */
+  stage?: string | null;
   createdAt: string;
 }
 

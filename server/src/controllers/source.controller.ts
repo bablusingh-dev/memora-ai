@@ -39,10 +39,10 @@ export const uploadSourceFile = asyncHandler(async (req: AuthenticatedRequest, r
 
   const source = await sourceService.ingestFile(notebookId, userId, req.file);
 
-  return ApiResponse.created({
+  return ApiResponse.accepted({
     res,
     data: source,
-    message: 'File source ingested & indexed into ParadeDB successfully',
+    message: 'File accepted — processing in the background. Poll GET /sources for status.',
   });
 });
 
@@ -57,10 +57,10 @@ export const ingestWebsite = asyncHandler(async (req: AuthenticatedRequest, res:
 
   const source = await sourceService.ingestWebsite(notebookId, userId, parseResult.data.url);
 
-  return ApiResponse.created({
+  return ApiResponse.accepted({
     res,
     data: source,
-    message: 'Website scraped via Firecrawl & indexed into ParadeDB successfully',
+    message: 'Website accepted — processing in the background. Poll GET /sources for status.',
   });
 });
 
@@ -75,10 +75,10 @@ export const ingestYoutube = asyncHandler(async (req: AuthenticatedRequest, res:
 
   const source = await sourceService.ingestYoutube(notebookId, userId, parseResult.data.url);
 
-  return ApiResponse.created({
+  return ApiResponse.accepted({
     res,
     data: source,
-    message: 'YouTube video transcript extracted & indexed into ParadeDB successfully',
+    message: 'YouTube video accepted — processing in the background. Poll GET /sources for status.',
   });
 });
 
@@ -94,10 +94,10 @@ export const ingestTextNote = asyncHandler(async (req: AuthenticatedRequest, res
   const { title, content } = parseResult.data;
   const source = await sourceService.ingestText(notebookId, userId, title, content);
 
-  return ApiResponse.created({
+  return ApiResponse.accepted({
     res,
     data: source,
-    message: 'Text note ingested & indexed into ParadeDB successfully',
+    message: 'Text note accepted — processing in the background. Poll GET /sources for status.',
   });
 });
 

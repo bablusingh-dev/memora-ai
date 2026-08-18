@@ -33,6 +33,59 @@ interface NotebookState {
   deleteNote: (noteId: string) => Promise<void>;
 }
 
+// ---------------------------------------------------------------------------
+// Source ingestion polling
+//
+// Ingestion now runs asynchronously on the server (Inngest pipeline) — a
+// successful upload/ingest call returns immediately with status:
+// 'processing', not a finished source. This polls GET /notebooks/:id/sources
+// every 3s and refreshes activeNotebook.sources until nothing is still
+// 'processing', so the UI eventually reflects 'ready' | 'error' | 'duplicate'
+// without the caller having to think about it.
+//
+// A single shared timer per notebook (not one per upload) so uploading
+// several sources in quick succession doesn't spawn overlapping polling
+// loops — each call just ensures a loop is running rather than starting a
+// new one. Bounded at 40 attempts (~2 minutes) so a stuck pipeline doesn't
+// poll forever.
+// ---------------------------------------------------------------------------
+let pollTimer: ReturnType<typeof setInterval> | null = null;
+let pollAttempts = 0;
+const MAX_POLL_ATTEMPTS = 40;
+const POLL_INTERVAL_MS = 3000;
+
+function ensureSourcePolling(
+  get: () => NotebookState,
+  set: (partial: Partial<NotebookState>) => void
+) {
+  if (pollTimer) return; // already polling
+
+  pollAttempts = 0;
+  pollTimer = setInterval(async () => {
+    const active = get().activeNotebook;
+    pollAttempts += 1;
+
+    const stillProcessing = (active?.sources || []).some((s) => s.status === 'processing');
+    if (!active || !stillProcessing || pollAttempts >= MAX_POLL_ATTEMPTS) {
+      if (pollTimer) clearInterval(pollTimer);
+      pollTimer = null;
+      return;
+    }
+
+    try {
+      const freshSources = await apiClient.get<any, SourceDocument[]>(`/notebooks/${active.id}/sources`);
+      const current = get().activeNotebook;
+      // Guard against the active notebook having changed while this request was in flight.
+      if (current && current.id === active.id) {
+        set({ activeNotebook: { ...current, sources: freshSources } });
+      }
+    } catch {
+      // Transient poll failure — try again next tick rather than surfacing
+      // an error for what is, from the user's perspective, background work.
+    }
+  }, POLL_INTERVAL_MS);
+}
+
 export const useNotebookStore = create<NotebookState>((set, get) => ({
   notebooks: [],
   activeNotebook: null,
@@ -59,6 +112,9 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
         apiClient.get<any, Note[]>(`/notebooks/${notebook.id}/notes`),
       ]);
       set({ activeNotebook: detailedNotebook, activeNotes: notesList });
+      // Resume polling if this notebook has ingestion still in flight from a
+      // previous session (e.g. page reload mid-ingestion).
+      ensureSourcePolling(get, set);
     } catch (e) {
       // ignore
     }
@@ -86,6 +142,9 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
       }
 
       set({ notebooks: data, activeNotebook: nextActive, isLoading: false });
+      // Resume polling if the notebook loaded on app start has ingestion
+      // still in flight from a previous session.
+      ensureSourcePolling(get, set);
     } catch (err: any) {
       set({ error: err.message || 'Failed to fetch notebooks', isLoading: false });
     }
@@ -176,6 +235,7 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
         isLoading: false,
         isAddSourceModalOpen: false,
       });
+      ensureSourcePolling(get, set);
 
       return source;
     } catch (err: any) {
@@ -203,6 +263,7 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
         isLoading: false,
         isAddSourceModalOpen: false,
       });
+      ensureSourcePolling(get, set);
 
       return source;
     } catch (err: any) {
@@ -230,6 +291,7 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
         isLoading: false,
         isAddSourceModalOpen: false,
       });
+      ensureSourcePolling(get, set);
 
       return source;
     } catch (err: any) {
@@ -257,6 +319,7 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
         isLoading: false,
         isAddSourceModalOpen: false,
       });
+      ensureSourcePolling(get, set);
 
       return source;
     } catch (err: any) {

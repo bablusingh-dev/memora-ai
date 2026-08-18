@@ -16,6 +16,9 @@ import {
   Eye,
   Layers,
   Sparkles,
+  Loader2,
+  AlertTriangle,
+  CopyX,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -85,6 +88,39 @@ export function SourcesPanel() {
         return <FileCode className="w-4 h-4 text-amber-500 dark:text-amber-400" />;
       default:
         return <FileText className="w-4 h-4 text-primary" />;
+    }
+  };
+
+  // Ingestion now happens asynchronously (Inngest pipeline) — a source can
+  // sit in 'processing' for real time, or land on 'error'/'duplicate'
+  // instead of 'ready'. Reflect that instead of always showing a green check.
+  const getStatusDisplay = (source: SourceDocument) => {
+    switch (source.status) {
+      case 'processing':
+        return {
+          icon: <Loader2 className="w-3 h-3 mr-0.5 animate-spin" />,
+          colorClass: 'text-amber-600 dark:text-amber-400',
+          label: source.stage ? `Processing • ${source.stage}` : 'Processing',
+        };
+      case 'error':
+        return {
+          icon: <AlertTriangle className="w-3 h-3 mr-0.5" />,
+          colorClass: 'text-destructive',
+          label: 'Failed',
+        };
+      case 'duplicate':
+        return {
+          icon: <CopyX className="w-3 h-3 mr-0.5" />,
+          colorClass: 'text-amber-600 dark:text-amber-400',
+          label: 'Duplicate',
+        };
+      case 'ready':
+      default:
+        return {
+          icon: <CheckCircle2 className="w-3 h-3 mr-0.5" />,
+          colorClass: 'text-emerald-600 dark:text-emerald-400',
+          label: 'Indexed',
+        };
     }
   };
 
@@ -194,6 +230,7 @@ export function SourcesPanel() {
         ) : (
           filteredSources.map((source) => {
             const isSelected = selectedSourceIds.has(source.id);
+            const statusDisplay = getStatusDisplay(source);
 
             return (
               <Card
@@ -226,9 +263,12 @@ export function SourcesPanel() {
                     </div>
 
                     <div className="flex items-center justify-between mt-1 text-[10px]">
-                      <span className="flex items-center text-emerald-600 dark:text-emerald-400 font-medium capitalize">
-                        <CheckCircle2 className="w-3 h-3 mr-0.5" />
-                        {source.fileType} • {source.status || 'Indexed'}
+                      <span
+                        className={`flex items-center font-medium capitalize ${statusDisplay.colorClass}`}
+                        title={source.errorMessage || undefined}
+                      >
+                        {statusDisplay.icon}
+                        {source.fileType} • {statusDisplay.label}
                       </span>
 
                       <div className="flex items-center space-x-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -285,7 +325,9 @@ export function SourcesPanel() {
                 </div>
                 <div>
                   <span className="text-[10px] text-muted-foreground block">Status</span>
-                  <span className="font-semibold text-emerald-500 capitalize">{inspectSource.status || 'Ready'}</span>
+                  <span className={`font-semibold capitalize ${getStatusDisplay(inspectSource).colorClass}`}>
+                    {getStatusDisplay(inspectSource).label}
+                  </span>
                 </div>
                 <div>
                   <span className="text-[10px] text-muted-foreground block">Created At</span>
@@ -298,6 +340,16 @@ export function SourcesPanel() {
                   </span>
                 </div>
               </div>
+
+              {inspectSource.errorMessage && (
+                <div className="p-3 rounded-2xl bg-destructive/10 border-0 space-y-1">
+                  <div className="flex items-center space-x-1.5 text-xs font-bold text-destructive">
+                    <AlertTriangle className="w-3.5 h-3.5" />
+                    <span>{inspectSource.status === 'duplicate' ? 'Duplicate Content' : 'Ingestion Failed'}</span>
+                  </div>
+                  <p className="text-[11px] text-muted-foreground leading-relaxed">{inspectSource.errorMessage}</p>
+                </div>
+              )}
 
               <div className="p-3 rounded-2xl bg-muted/20 border-0 space-y-1">
                 <div className="flex items-center space-x-1.5 text-xs font-bold text-foreground">

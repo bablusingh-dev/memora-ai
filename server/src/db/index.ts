@@ -103,6 +103,21 @@ export async function connectDB() {
             ON document_chunks USING bm25 (id, retrieval_content, content)
             WITH (key_field='id');
         END IF;
+
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'source_documents') THEN
+          ALTER TABLE source_documents ADD COLUMN IF NOT EXISTS content_hash TEXT;
+          ALTER TABLE source_documents ADD COLUMN IF NOT EXISTS error_message TEXT;
+          ALTER TABLE source_documents ADD COLUMN IF NOT EXISTS stage TEXT;
+
+          -- Dedup backstop: two concurrent ingestions of identical content in
+          -- the same notebook race past the application-level pre-check, but
+          -- can't both win here. NULL content_hash (legacy rows, or rows not
+          -- yet far enough through the async pipeline to know their hash) is
+          -- deliberately excluded so it never blocks unrelated inserts.
+          CREATE UNIQUE INDEX IF NOT EXISTS idx_source_documents_notebook_hash
+            ON source_documents(notebook_id, content_hash)
+            WHERE content_hash IS NOT NULL;
+        END IF;
       END $$;
     `);
 
