@@ -3,6 +3,11 @@ import { logger } from '../../utils/logger.js';
 import { env } from '../../config/env.js';
 import crypto from 'crypto';
 
+// See MEM0_REQUEST_TIMEOUT_MS in cloud.memory.provider.ts for the rationale
+// — every call here now runs inside an Inngest step or a per-chat-turn
+// retrieval branch, both of which need a bounded failure mode.
+const MEM0_REQUEST_TIMEOUT_MS = 10000;
+
 /**
  * Self-Hosted Memory Provider
  * Manages local semantic, episodic, user profile, and procedural memory.
@@ -50,6 +55,7 @@ export class SelfHostedMemoryProvider implements IMemoryProvider {
           category: options.category || 'semantic',
         },
       }),
+      signal: AbortSignal.timeout(MEM0_REQUEST_TIMEOUT_MS),
     });
 
     if (!res.ok) {
@@ -85,6 +91,7 @@ export class SelfHostedMemoryProvider implements IMemoryProvider {
         run_id: options.runId,
         limit,
       }),
+      signal: AbortSignal.timeout(MEM0_REQUEST_TIMEOUT_MS),
     });
 
     if (!res.ok) {
@@ -110,6 +117,7 @@ export class SelfHostedMemoryProvider implements IMemoryProvider {
 
     const res = await fetch(`${this.hostUrl}/v1/memories?user_id=${userId}&limit=${options.limit ?? 100}`, {
       method: 'GET',
+      signal: AbortSignal.timeout(MEM0_REQUEST_TIMEOUT_MS),
     });
 
     if (!res.ok) {
@@ -121,21 +129,29 @@ export class SelfHostedMemoryProvider implements IMemoryProvider {
   }
 
   async get(memoryId: string): Promise<MemoryItem | null> {
-    const res = await fetch(`${this.hostUrl}/v1/memories/${memoryId}`);
+    const res = await fetch(`${this.hostUrl}/v1/memories/${memoryId}`, {
+      signal: AbortSignal.timeout(MEM0_REQUEST_TIMEOUT_MS),
+    });
     if (res.status === 404) return null;
     if (!res.ok) throw new Error(`Mem0 get failed: ${res.status} ${res.statusText}`);
     return res.json() as Promise<MemoryItem>;
   }
 
   async delete(memoryId: string): Promise<boolean> {
-    const res = await fetch(`${this.hostUrl}/v1/memories/${memoryId}`, { method: 'DELETE' });
+    const res = await fetch(`${this.hostUrl}/v1/memories/${memoryId}`, {
+      method: 'DELETE',
+      signal: AbortSignal.timeout(MEM0_REQUEST_TIMEOUT_MS),
+    });
     if (res.status === 404) return false;
     if (!res.ok) throw new Error(`Mem0 delete failed: ${res.status} ${res.statusText}`);
     return true;
   }
 
   async reset(userId: string): Promise<boolean> {
-    const res = await fetch(`${this.hostUrl}/v1/memories?user_id=${userId}`, { method: 'DELETE' });
+    const res = await fetch(`${this.hostUrl}/v1/memories?user_id=${userId}`, {
+      method: 'DELETE',
+      signal: AbortSignal.timeout(MEM0_REQUEST_TIMEOUT_MS),
+    });
     if (!res.ok) throw new Error(`Mem0 reset failed: ${res.status} ${res.statusText}`);
     return true;
   }

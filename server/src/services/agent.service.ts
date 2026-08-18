@@ -5,7 +5,6 @@ import { env } from '../config/env.js';
 import { NotebookRepository } from '../repositories/notebook.repository.js';
 import { ChatRepository } from '../repositories/chat.repository.js';
 import { MemoryCoordinatorService } from './memory/memory-coordinator.service.js';
-import { MemoryExtractorService } from './memory/memory-extractor.service.js';
 import { ContextBuilderService } from './context-builder.service.js';
 import { GraphFactory } from '../providers/graph/graph.factory.js';
 import { MemoryFactory } from '../providers/memory/memory.factory.js';
@@ -16,13 +15,14 @@ import { notes } from '../db/schema.js';
 import { logger } from '../utils/logger.js';
 import { queryEnhancer } from './query-enhancer.service.js';
 import { embeddingService } from './embedding.service.js';
+import { inngest } from '../inngest/client.js';
+import { chatMessageCompleted } from '../inngest/events.js';
 import { BadRequestError } from '../utils/api-error.js';
 
 export class AgentService {
   private notebookRepo: NotebookRepository;
   private chatRepo: ChatRepository;
   private memoryCoordinator: MemoryCoordinatorService;
-  private memoryExtractor: MemoryExtractorService;
   private contextBuilder: ContextBuilderService;
   private firecrawlService: FirecrawlService;
   private graphProvider = GraphFactory.getProvider();
@@ -32,7 +32,6 @@ export class AgentService {
     this.notebookRepo = new NotebookRepository();
     this.chatRepo = new ChatRepository();
     this.memoryCoordinator = new MemoryCoordinatorService();
-    this.memoryExtractor = new MemoryExtractorService();
     this.contextBuilder = new ContextBuilderService();
     this.firecrawlService = new FirecrawlService();
   }
@@ -323,13 +322,34 @@ INSTRUCTIONS:
           if (assistantText) parts.push({ type: 'text', text: assistantText });
 
           if (assistantText || parts.length > 0) {
-            await this.chatRepo.createMessage({ notebookId, userId, role: 'assistant', content: assistantText, parts });
+            const savedMessage = await this.chatRepo.createMessage({
+              notebookId, userId, role: 'assistant', content: assistantText, parts,
+            });
             logger.info({ notebookId, userId }, 'Persisted assistant response');
 
-            // Background: extract and persist user-scoped memories (NOT document graph)
-            this.memoryExtractor
-              .extractAndPersistMemories(userId, notebookId, userQuery, assistantText)
-              .catch((e) => logger.error({ e }, 'Background memory extraction failed'));
+            // Durable memory extraction (NOT document graph — that's handled
+            // by graph-extract-chunk on document ingestion, never on chat
+            // turns). Replaces the old unawaited
+            // `this.memoryExtractor.extractAndPersistMemories(...).catch(...)`
+            // call — that promise had no retry and was silently lost if the
+            // process restarted mid-extraction or mem0 was briefly down.
+            // Sending the event is itself best-effort: a failure here just
+            // means this turn's memories are never extracted (same
+            // reliability ceiling as before), rather than blocking a
+            // response the user is already looking at.
+            try {
+              await inngest.send(
+                chatMessageCompleted.create({
+                  userId,
+                  notebookId,
+                  chatMessageId: savedMessage.id,
+                  userMessage: userQuery,
+                  assistantReply: assistantText,
+                })
+              );
+            } catch (sendErr) {
+              logger.error({ sendErr, notebookId, userId }, 'Failed to enqueue memory extraction event');
+            }
           }
         } catch (saveErr) {
           logger.error({ saveErr, notebookId }, 'Failed to persist assistant response');

@@ -2,6 +2,13 @@ import { IMemoryProvider, MemoryItem, MemoryAddOptions, MemorySearchOptions } fr
 import { logger } from '../../utils/logger.js';
 import { env } from '../../config/env.js';
 
+// Every mem0 call now runs inside an Inngest step (extract-memories.ts) or a
+// per-chat-turn retrieval branch — both need a bounded failure mode instead
+// of hanging on Node's default (no) fetch timeout. 10s is generous for a
+// memory-store round trip while still failing fast enough for Inngest's
+// retry/step-timeout machinery to do its job.
+const MEM0_REQUEST_TIMEOUT_MS = 10000;
+
 /**
  * Cloud Memory Provider (Mem0 Cloud API)
  * Zero-code switchable when MEMORY_PROVIDER=mem0_cloud
@@ -44,6 +51,7 @@ export class CloudMemoryProvider implements IMemoryProvider {
             category: options.category || 'semantic',
           },
         }),
+        signal: AbortSignal.timeout(MEM0_REQUEST_TIMEOUT_MS),
       });
 
       if (!res.ok) {
@@ -79,6 +87,7 @@ export class CloudMemoryProvider implements IMemoryProvider {
           run_id: options.runId,
           limit: options.limit || 5,
         }),
+        signal: AbortSignal.timeout(MEM0_REQUEST_TIMEOUT_MS),
       });
 
       if (!res.ok) {
@@ -111,6 +120,7 @@ export class CloudMemoryProvider implements IMemoryProvider {
 
       const res = await fetch(url.toString(), {
         headers: this.getHeaders(),
+        signal: AbortSignal.timeout(MEM0_REQUEST_TIMEOUT_MS),
       });
 
       if (!res.ok) {
@@ -138,6 +148,7 @@ export class CloudMemoryProvider implements IMemoryProvider {
     try {
       const res = await fetch(`${this.baseUrl}/memories/${memoryId}/`, {
         headers: this.getHeaders(),
+        signal: AbortSignal.timeout(MEM0_REQUEST_TIMEOUT_MS),
       });
       if (!res.ok) return null;
       const m: any = await res.json();
@@ -159,6 +170,7 @@ export class CloudMemoryProvider implements IMemoryProvider {
       const res = await fetch(`${this.baseUrl}/memories/${memoryId}/`, {
         method: 'DELETE',
         headers: this.getHeaders(),
+        signal: AbortSignal.timeout(MEM0_REQUEST_TIMEOUT_MS),
       });
       return res.ok;
     } catch (error) {
@@ -172,6 +184,7 @@ export class CloudMemoryProvider implements IMemoryProvider {
         method: 'DELETE',
         headers: this.getHeaders(),
         body: JSON.stringify({ user_id: userId }),
+        signal: AbortSignal.timeout(MEM0_REQUEST_TIMEOUT_MS),
       });
       return res.ok;
     } catch (error) {
