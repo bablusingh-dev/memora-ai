@@ -1,4 +1,5 @@
 import type { Config } from 'tailwindcss';
+import typography from '@tailwindcss/typography';
 
 const config: Config = {
   darkMode: ['class'],
@@ -69,7 +70,10 @@ const config: Config = {
       },
     },
   },
-  plugins: [],
+  // The `prose` classes used for markdown rendering (chat answers, and now
+  // the Report Studio viewer) were previously no-ops — this plugin was never
+  // registered even though `prose`/`prose-invert` were already in use.
+  plugins: [typography],
 };
 
 export default config;

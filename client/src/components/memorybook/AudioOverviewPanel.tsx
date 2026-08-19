@@ -21,6 +21,7 @@ import {
   Search,
   Loader2,
   Table2,
+  ScrollText,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -34,6 +35,7 @@ import { StudioArtifactCard } from '@/components/memorybook/studio/StudioArtifac
 import { FlashcardViewer } from '@/components/memorybook/studio/FlashcardViewer';
 import { QuizViewer } from '@/components/memorybook/studio/QuizViewer';
 import { DataTableViewer } from '@/components/memorybook/studio/DataTableViewer';
+import { ReportViewer } from '@/components/memorybook/studio/ReportViewer';
 import {
   Dialog,
   DialogContent,
@@ -79,6 +81,14 @@ const STUDIO_GENERATOR_CONFIGS: {
     icon: Table2,
     iconClass: 'bg-orange-500/10 text-orange-500',
   },
+  {
+    kind: 'report',
+    label: 'Report',
+    description: 'A structured written summary of your sources',
+    generatingLabel: 'Writing your report…',
+    icon: ScrollText,
+    iconClass: 'bg-rose-500/10 text-rose-500',
+  },
 ];
 
 /**
@@ -105,7 +115,16 @@ const STUDIO_VIEWER_CONFIGS: Record<
     describe: (a) => `${a.payload && 'rows' in a.payload ? a.payload.rows.length : 0} rows, generated from your sources`,
     render: (a) => (a.payload && 'rows' in a.payload ? <DataTableViewer payload={a.payload} /> : null),
   },
+  report: {
+    icon: ScrollText,
+    describe: (a) => `${a.payload && 'sections' in a.payload ? a.payload.sections.length : 0} sections, generated from your sources`,
+    render: (a) => (a.payload && 'sections' in a.payload ? <ReportViewer payload={a.payload} /> : null),
+  },
 };
+
+// Kinds whose content benefits from a wider dialog (a table or a long-form
+// document reads poorly squeezed into the default 440px card-style width).
+const WIDE_VIEWER_KINDS = new Set<StudioArtifactKind>(['data_table', 'report']);
 
 export function AudioOverviewPanel() {
   const {
@@ -505,7 +524,11 @@ export function AudioOverviewPanel() {
 
       {/* Studio Artifact Viewer Dialog */}
       <Dialog open={!!selectedArtifact} onOpenChange={() => setSelectedArtifact(null)}>
-        <DialogContent className="sm:max-w-[440px] border-0 bg-slate-100 dark:bg-zinc-900 ring-1 ring-black/5 dark:ring-white/10 shadow-2xl dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.95)] text-foreground rounded-3xl p-5 space-y-3">
+        <DialogContent
+          className={`${
+            selectedArtifact && WIDE_VIEWER_KINDS.has(selectedArtifact.kind) ? 'sm:max-w-[640px]' : 'sm:max-w-[440px]'
+          } border-0 bg-slate-100 dark:bg-zinc-900 ring-1 ring-black/5 dark:ring-white/10 shadow-2xl dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.95)] text-foreground rounded-3xl p-5 space-y-3`}
+        >
           {selectedArtifact && (
             <>
               <DialogHeader className="bg-white dark:bg-zinc-950 p-4 rounded-2xl shadow-2xs">

@@ -5,11 +5,12 @@ import { buildStudioContext, StudioContext } from '../../services/studio-context
 import { generateFlashcards } from '../../services/studio-generators/flashcards.service.js';
 import { generateQuiz } from '../../services/studio-generators/quiz.service.js';
 import { generateDataTable } from '../../services/studio-generators/data-table.service.js';
+import { generateReport } from '../../services/studio-generators/report.service.js';
 import { logger } from '../../utils/logger.js';
 
 const studioRepo = new StudioRepository();
 
-type StudioArtifactKind = 'flashcards' | 'quiz' | 'data_table';
+type StudioArtifactKind = 'flashcards' | 'quiz' | 'data_table' | 'report';
 
 /**
  * One entry per Studio output kind. Adding a new kind (Mind Map, Slide
@@ -21,6 +22,7 @@ const studioGenerators: Record<StudioArtifactKind, (ctx: StudioContext) => Promi
   flashcards: generateFlashcards,
   quiz: generateQuiz,
   data_table: generateDataTable,
+  report: generateReport,
 };
 
 /**
