@@ -115,6 +115,6 @@ export const studioArtifactRequested = eventType('studio/artifact.requested', {
     memorybookId: z.string().uuid(),
     userId: z.string().min(1),
     // Extend one value at a time as new Studio output kinds ship.
-    kind: z.enum(['flashcards', 'quiz', 'data_table', 'report', 'mind_map']),
+    kind: z.enum(['flashcards', 'quiz', 'data_table', 'report', 'mind_map', 'slide_deck']),
   }),
 });

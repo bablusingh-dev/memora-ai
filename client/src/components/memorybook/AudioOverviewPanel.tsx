@@ -23,6 +23,7 @@ import {
   Table2,
   ScrollText,
   Network,
+  Presentation,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -38,6 +39,7 @@ import { QuizViewer } from '@/components/memorybook/studio/QuizViewer';
 import { DataTableViewer } from '@/components/memorybook/studio/DataTableViewer';
 import { ReportViewer } from '@/components/memorybook/studio/ReportViewer';
 import { MindMapViewer } from '@/components/memorybook/studio/MindMapViewer';
+import { SlideDeckViewer } from '@/components/memorybook/studio/SlideDeckViewer';
 import {
   Dialog,
   DialogContent,
@@ -99,6 +101,14 @@ const STUDIO_GENERATOR_CONFIGS: {
     icon: Network,
     iconClass: 'bg-teal-500/10 text-teal-500',
   },
+  {
+    kind: 'slide_deck',
+    label: 'Slide Deck',
+    description: 'A presentation-ready outline of your sources',
+    generatingLabel: 'Building your deck…',
+    icon: Presentation,
+    iconClass: 'bg-indigo-500/10 text-indigo-500',
+  },
 ];
 
 /**
@@ -135,11 +145,16 @@ const STUDIO_VIEWER_CONFIGS: Record<
     describe: (a) => `${a.payload && 'nodes' in a.payload ? a.payload.nodes.length : 0} concepts, generated from your sources`,
     render: (a) => (a.payload && 'nodes' in a.payload ? <MindMapViewer payload={a.payload} /> : null),
   },
+  slide_deck: {
+    icon: Presentation,
+    describe: (a) => `${a.payload && 'slides' in a.payload ? a.payload.slides.length + 1 : 0} slides, generated from your sources`,
+    render: (a) => (a.payload && 'slides' in a.payload ? <SlideDeckViewer payload={a.payload} /> : null),
+  },
 };
 
 // Kinds whose content benefits from a wider dialog (a table or a long-form
 // document reads poorly squeezed into the default 440px card-style width).
-const WIDE_VIEWER_KINDS = new Set<StudioArtifactKind>(['data_table', 'report', 'mind_map']);
+const WIDE_VIEWER_KINDS = new Set<StudioArtifactKind>(['data_table', 'report', 'mind_map', 'slide_deck']);
 
 export function AudioOverviewPanel() {
   const {
