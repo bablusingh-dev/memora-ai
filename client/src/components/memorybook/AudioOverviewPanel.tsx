@@ -20,6 +20,7 @@ import {
   Share2,
   Search,
   Loader2,
+  Table2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -32,6 +33,7 @@ import { StudioArtifact, StudioArtifactKind } from '@/types/api';
 import { StudioArtifactCard } from '@/components/memorybook/studio/StudioArtifactCard';
 import { FlashcardViewer } from '@/components/memorybook/studio/FlashcardViewer';
 import { QuizViewer } from '@/components/memorybook/studio/QuizViewer';
+import { DataTableViewer } from '@/components/memorybook/studio/DataTableViewer';
 import {
   Dialog,
   DialogContent,
@@ -69,7 +71,41 @@ const STUDIO_GENERATOR_CONFIGS: {
     icon: HelpCircle,
     iconClass: 'bg-sky-500/10 text-sky-500',
   },
+  {
+    kind: 'data_table',
+    label: 'Data Table',
+    description: 'Key facts and figures extracted into a sortable table',
+    generatingLabel: 'Building your table…',
+    icon: Table2,
+    iconClass: 'bg-orange-500/10 text-orange-500',
+  },
 ];
+
+/**
+ * Per-kind viewer dialog config: icon, a one-line description of the
+ * payload, and the viewer component itself. Looked up by `selectedArtifact.kind`
+ * so adding a new Studio kind only means adding one entry here.
+ */
+const STUDIO_VIEWER_CONFIGS: Record<
+  StudioArtifactKind,
+  { icon: React.ElementType; describe: (artifact: StudioArtifact) => string; render: (artifact: StudioArtifact) => React.ReactNode }
+> = {
+  flashcards: {
+    icon: Layers,
+    describe: (a) => `${a.payload && 'cards' in a.payload ? a.payload.cards.length : 0} cards, generated from your sources`,
+    render: (a) => (a.payload && 'cards' in a.payload ? <FlashcardViewer payload={a.payload} /> : null),
+  },
+  quiz: {
+    icon: HelpCircle,
+    describe: (a) => `${a.payload && 'questions' in a.payload ? a.payload.questions.length : 0} questions, generated from your sources`,
+    render: (a) => (a.payload && 'questions' in a.payload ? <QuizViewer payload={a.payload} /> : null),
+  },
+  data_table: {
+    icon: Table2,
+    describe: (a) => `${a.payload && 'rows' in a.payload ? a.payload.rows.length : 0} rows, generated from your sources`,
+    render: (a) => (a.payload && 'rows' in a.payload ? <DataTableViewer payload={a.payload} /> : null),
+  },
+};
 
 export function AudioOverviewPanel() {
   const {
@@ -470,30 +506,26 @@ export function AudioOverviewPanel() {
       {/* Studio Artifact Viewer Dialog */}
       <Dialog open={!!selectedArtifact} onOpenChange={() => setSelectedArtifact(null)}>
         <DialogContent className="sm:max-w-[440px] border-0 bg-slate-100 dark:bg-zinc-900 ring-1 ring-black/5 dark:ring-white/10 shadow-2xl dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.95)] text-foreground rounded-3xl p-5 space-y-3">
-          <DialogHeader className="bg-white dark:bg-zinc-950 p-4 rounded-2xl shadow-2xs">
-            <DialogTitle className="flex items-center gap-2 text-sm font-bold text-foreground">
-              {selectedArtifact?.kind === 'quiz' ? (
-                <HelpCircle className="w-4 h-4 text-primary" />
-              ) : (
-                <Layers className="w-4 h-4 text-primary" />
-              )}
-              <span className="truncate">{selectedArtifact?.title}</span>
-            </DialogTitle>
-            <DialogDescription className="text-[11px] text-muted-foreground mt-0.5">
-              {selectedArtifact?.kind === 'quiz'
-                ? `${selectedArtifact.payload && 'questions' in selectedArtifact.payload ? selectedArtifact.payload.questions.length : 0} questions, generated from your sources`
-                : `${selectedArtifact?.payload && 'cards' in selectedArtifact.payload ? selectedArtifact.payload.cards.length : 0} cards, generated from your sources`}
-            </DialogDescription>
-          </DialogHeader>
+          {selectedArtifact && (
+            <>
+              <DialogHeader className="bg-white dark:bg-zinc-950 p-4 rounded-2xl shadow-2xs">
+                <DialogTitle className="flex items-center gap-2 text-sm font-bold text-foreground">
+                  {(() => {
+                    const Icon = STUDIO_VIEWER_CONFIGS[selectedArtifact.kind].icon;
+                    return <Icon className="w-4 h-4 text-primary" />;
+                  })()}
+                  <span className="truncate">{selectedArtifact.title}</span>
+                </DialogTitle>
+                <DialogDescription className="text-[11px] text-muted-foreground mt-0.5">
+                  {STUDIO_VIEWER_CONFIGS[selectedArtifact.kind].describe(selectedArtifact)}
+                </DialogDescription>
+              </DialogHeader>
 
-          <div className="p-4 rounded-2xl bg-white dark:bg-zinc-950 shadow-2xs">
-            {selectedArtifact?.payload && selectedArtifact.kind === 'flashcards' && 'cards' in selectedArtifact.payload && (
-              <FlashcardViewer payload={selectedArtifact.payload} />
-            )}
-            {selectedArtifact?.payload && selectedArtifact.kind === 'quiz' && 'questions' in selectedArtifact.payload && (
-              <QuizViewer payload={selectedArtifact.payload} />
-            )}
-          </div>
+              <div className="p-4 rounded-2xl bg-white dark:bg-zinc-950 shadow-2xs">
+                {STUDIO_VIEWER_CONFIGS[selectedArtifact.kind].render(selectedArtifact)}
+              </div>
+            </>
+          )}
         </DialogContent>
       </Dialog>
 

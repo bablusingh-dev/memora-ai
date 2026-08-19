@@ -4,11 +4,12 @@ import { NotFoundError } from '../utils/api-error.js';
 import { inngest } from '../inngest/client.js';
 import { studioArtifactRequested } from '../inngest/events.js';
 
-export type StudioArtifactKind = 'flashcards' | 'quiz';
+export type StudioArtifactKind = 'flashcards' | 'quiz' | 'data_table';
 
 const KIND_TITLES: Record<StudioArtifactKind, string> = {
   flashcards: 'Flashcards',
   quiz: 'Quiz',
+  data_table: 'Data Table',
 };
 
 /**
