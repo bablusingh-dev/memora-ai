@@ -17,7 +17,7 @@ const BATCH_SIZE = 96;
  * Wraps `embed`/`embedMany` from the `ai` SDK for both ingestion-time
  * (batch, many chunks) and query-time (single, the corrected user query)
  * embedding generation — the two call sites that need vectors for hybrid
- * BM25 + pgvector retrieval (see notebook.repository.ts#searchHybrid).
+ * BM25 + pgvector retrieval (see memorybook.repository.ts#searchHybrid).
  */
 export class EmbeddingService {
   private openai: ReturnType<typeof createOpenAI>;

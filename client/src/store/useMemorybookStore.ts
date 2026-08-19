@@ -1,10 +1,10 @@
 import { create } from 'zustand';
 import { apiClient } from '@/lib/api-client';
-import { Notebook, SourceDocument, Note } from '@/types/api';
+import { Memorybook, SourceDocument, Note } from '@/types/api';
 
-interface NotebookState {
-  notebooks: Notebook[];
-  activeNotebook: Notebook | null;
+interface MemorybookState {
+  memorybooks: Memorybook[];
+  activeMemorybook: Memorybook | null;
   activeNotes: Note[];
   isLoading: boolean;
   error: string | null;
@@ -14,11 +14,11 @@ interface NotebookState {
   // Actions
   setCreateModalOpen: (open: boolean) => void;
   setAddSourceModalOpen: (open: boolean) => void;
-  setActiveNotebook: (notebook: Notebook | null) => Promise<void>;
-  fetchNotebooks: () => Promise<void>;
-  createNotebook: (title: string, description?: string) => Promise<Notebook>;
-  deleteNotebook: (id: string) => Promise<void>;
-  updateNotebook: (id: string, title?: string, description?: string) => Promise<void>;
+  setActiveMemorybook: (memorybook: Memorybook | null) => Promise<void>;
+  fetchMemorybooks: () => Promise<void>;
+  createMemorybook: (title: string, description?: string) => Promise<Memorybook>;
+  deleteMemorybook: (id: string) => Promise<void>;
+  updateMemorybook: (id: string, title?: string, description?: string) => Promise<void>;
 
   // Source Actions
   uploadFileSource: (file: File) => Promise<SourceDocument>;
@@ -38,12 +38,12 @@ interface NotebookState {
 //
 // Ingestion now runs asynchronously on the server (Inngest pipeline) — a
 // successful upload/ingest call returns immediately with status:
-// 'processing', not a finished source. This polls GET /notebooks/:id/sources
-// every 3s and refreshes activeNotebook.sources until nothing is still
+// 'processing', not a finished source. This polls GET /memorybooks/:id/sources
+// every 3s and refreshes activeMemorybook.sources until nothing is still
 // 'processing', so the UI eventually reflects 'ready' | 'error' | 'duplicate'
 // without the caller having to think about it.
 //
-// A single shared timer per notebook (not one per upload) so uploading
+// A single shared timer per memorybook (not one per upload) so uploading
 // several sources in quick succession doesn't spawn overlapping polling
 // loops — each call just ensures a loop is running rather than starting a
 // new one. Bounded at 40 attempts (~2 minutes) so a stuck pipeline doesn't
@@ -55,14 +55,14 @@ const MAX_POLL_ATTEMPTS = 40;
 const POLL_INTERVAL_MS = 3000;
 
 function ensureSourcePolling(
-  get: () => NotebookState,
-  set: (partial: Partial<NotebookState>) => void
+  get: () => MemorybookState,
+  set: (partial: Partial<MemorybookState>) => void
 ) {
   if (pollTimer) return; // already polling
 
   pollAttempts = 0;
   pollTimer = setInterval(async () => {
-    const active = get().activeNotebook;
+    const active = get().activeMemorybook;
     pollAttempts += 1;
 
     const stillProcessing = (active?.sources || []).some((s) => s.status === 'processing');
@@ -73,11 +73,11 @@ function ensureSourcePolling(
     }
 
     try {
-      const freshSources = await apiClient.get<any, SourceDocument[]>(`/notebooks/${active.id}/sources`);
-      const current = get().activeNotebook;
-      // Guard against the active notebook having changed while this request was in flight.
+      const freshSources = await apiClient.get<any, SourceDocument[]>(`/memorybooks/${active.id}/sources`);
+      const current = get().activeMemorybook;
+      // Guard against the active memorybook having changed while this request was in flight.
       if (current && current.id === active.id) {
-        set({ activeNotebook: { ...current, sources: freshSources } });
+        set({ activeMemorybook: { ...current, sources: freshSources } });
       }
     } catch {
       // Transient poll failure — try again next tick rather than surfacing
@@ -86,9 +86,9 @@ function ensureSourcePolling(
   }, POLL_INTERVAL_MS);
 }
 
-export const useNotebookStore = create<NotebookState>((set, get) => ({
-  notebooks: [],
-  activeNotebook: null,
+export const useMemorybookStore = create<MemorybookState>((set, get) => ({
+  memorybooks: [],
+  activeMemorybook: null,
   activeNotes: [],
   isLoading: false,
   error: null,
@@ -98,21 +98,21 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
   setCreateModalOpen: (open: boolean) => set({ isCreateModalOpen: open }),
   setAddSourceModalOpen: (open: boolean) => set({ isAddSourceModalOpen: open }),
 
-  setActiveNotebook: async (notebook: Notebook | null) => {
-    if (!notebook) {
-      set({ activeNotebook: null, activeNotes: [] });
+  setActiveMemorybook: async (memorybook: Memorybook | null) => {
+    if (!memorybook) {
+      set({ activeMemorybook: null, activeNotes: [] });
       return;
     }
-    set({ activeNotebook: notebook });
+    set({ activeMemorybook: memorybook });
     
-    // Fetch full detailed notebook sources and notes when active notebook changes
+    // Fetch full detailed memorybook sources and notes when active memorybook changes
     try {
-      const [detailedNotebook, notesList] = await Promise.all([
-        apiClient.get<any, Notebook>(`/notebooks/${notebook.id}`),
-        apiClient.get<any, Note[]>(`/notebooks/${notebook.id}/notes`),
+      const [detailedMemorybook, notesList] = await Promise.all([
+        apiClient.get<any, Memorybook>(`/memorybooks/${memorybook.id}`),
+        apiClient.get<any, Note[]>(`/memorybooks/${memorybook.id}/notes`),
       ]);
-      set({ activeNotebook: detailedNotebook, activeNotes: notesList });
-      // Resume polling if this notebook has ingestion still in flight from a
+      set({ activeMemorybook: detailedMemorybook, activeNotes: notesList });
+      // Resume polling if this memorybook has ingestion still in flight from a
       // previous session (e.g. page reload mid-ingestion).
       ensureSourcePolling(get, set);
     } catch (e) {
@@ -120,19 +120,19 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
     }
   },
 
-  fetchNotebooks: async () => {
+  fetchMemorybooks: async () => {
     set({ isLoading: true, error: null });
     try {
-      const data = await apiClient.get<any, Notebook[]>('/notebooks');
-      const active = get().activeNotebook;
+      const data = await apiClient.get<any, Memorybook[]>('/memorybooks');
+      const active = get().activeMemorybook;
       
       let nextActive = active ? data.find((n) => n.id === active.id) || data[0] || null : data[0] || null;
 
       if (nextActive) {
         try {
           const [detailed, notesList] = await Promise.all([
-            apiClient.get<any, Notebook>(`/notebooks/${nextActive.id}`),
-            apiClient.get<any, Note[]>(`/notebooks/${nextActive.id}/notes`),
+            apiClient.get<any, Memorybook>(`/memorybooks/${nextActive.id}`),
+            apiClient.get<any, Note[]>(`/memorybooks/${nextActive.id}/notes`),
           ]);
           nextActive = detailed;
           set({ activeNotes: notesList });
@@ -141,80 +141,80 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
         }
       }
 
-      set({ notebooks: data, activeNotebook: nextActive, isLoading: false });
-      // Resume polling if the notebook loaded on app start has ingestion
+      set({ memorybooks: data, activeMemorybook: nextActive, isLoading: false });
+      // Resume polling if the memorybook loaded on app start has ingestion
       // still in flight from a previous session.
       ensureSourcePolling(get, set);
     } catch (err: any) {
-      set({ error: err.message || 'Failed to fetch notebooks', isLoading: false });
+      set({ error: err.message || 'Failed to fetch memorybooks', isLoading: false });
     }
   },
 
-  createNotebook: async (title: string, description?: string) => {
+  createMemorybook: async (title: string, description?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const newNotebook = await apiClient.post<any, Notebook>('/notebooks', { title, description });
-      const currentList = get().notebooks;
+      const newMemorybook = await apiClient.post<any, Memorybook>('/memorybooks', { title, description });
+      const currentList = get().memorybooks;
       
       set({
-        notebooks: [newNotebook, ...currentList],
-        activeNotebook: { ...newNotebook, sources: [] },
+        memorybooks: [newMemorybook, ...currentList],
+        activeMemorybook: { ...newMemorybook, sources: [] },
         activeNotes: [],
         isLoading: false,
         isCreateModalOpen: false,
       });
 
-      return newNotebook;
+      return newMemorybook;
     } catch (err: any) {
-      set({ error: err.message || 'Failed to create notebook', isLoading: false });
+      set({ error: err.message || 'Failed to create memorybook', isLoading: false });
       throw err;
     }
   },
 
-  deleteNotebook: async (id: string) => {
+  deleteMemorybook: async (id: string) => {
     set({ isLoading: true, error: null });
     try {
-      await apiClient.delete(`/notebooks/${id}`);
-      const updatedList = get().notebooks.filter((n) => n.id !== id);
-      const currentActive = get().activeNotebook;
+      await apiClient.delete(`/memorybooks/${id}`);
+      const updatedList = get().memorybooks.filter((n) => n.id !== id);
+      const currentActive = get().activeMemorybook;
       const nextActive = currentActive?.id === id ? updatedList[0] || null : currentActive;
 
       set({
-        notebooks: updatedList,
-        activeNotebook: nextActive,
+        memorybooks: updatedList,
+        activeMemorybook: nextActive,
         activeNotes: [],
         isLoading: false,
       });
       if (nextActive) {
-        get().setActiveNotebook(nextActive);
+        get().setActiveMemorybook(nextActive);
       }
     } catch (err: any) {
-      set({ error: err.message || 'Failed to delete notebook', isLoading: false });
+      set({ error: err.message || 'Failed to delete memorybook', isLoading: false });
       throw err;
     }
   },
 
-  updateNotebook: async (id: string, title?: string, description?: string) => {
+  updateMemorybook: async (id: string, title?: string, description?: string) => {
     set({ isLoading: true, error: null });
     try {
-      const updated = await apiClient.patch<any, Notebook>(`/notebooks/${id}`, { title, description });
-      const updatedList = get().notebooks.map((n) => (n.id === id ? updated : n));
+      const updated = await apiClient.patch<any, Memorybook>(`/memorybooks/${id}`, { title, description });
+      const updatedList = get().memorybooks.map((n) => (n.id === id ? updated : n));
       
       set({
-        notebooks: updatedList,
-        activeNotebook: get().activeNotebook?.id === id ? { ...get().activeNotebook!, ...updated } : get().activeNotebook,
+        memorybooks: updatedList,
+        activeMemorybook: get().activeMemorybook?.id === id ? { ...get().activeMemorybook!, ...updated } : get().activeMemorybook,
         isLoading: false,
       });
     } catch (err: any) {
-      set({ error: err.message || 'Failed to update notebook', isLoading: false });
+      set({ error: err.message || 'Failed to update memorybook', isLoading: false });
       throw err;
     }
   },
 
   // Source Actions Implementation
   uploadFileSource: async (file: File) => {
-    const active = get().activeNotebook;
-    if (!active) throw new Error('No active notebook selected');
+    const active = get().activeMemorybook;
+    if (!active) throw new Error('No active memorybook selected');
 
     set({ isLoading: true, error: null });
     try {
@@ -222,7 +222,7 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
       formData.append('file', file);
 
       const source = await apiClient.post<any, SourceDocument>(
-        `/notebooks/${active.id}/sources/upload`,
+        `/memorybooks/${active.id}/sources/upload`,
         formData,
         { headers: { 'Content-Type': 'multipart/form-data' } }
       );
@@ -231,7 +231,7 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
       const updatedActive = { ...active, sources: [source, ...currentSources] };
 
       set({
-        activeNotebook: updatedActive,
+        activeMemorybook: updatedActive,
         isLoading: false,
         isAddSourceModalOpen: false,
       });
@@ -245,13 +245,13 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
   },
 
   ingestWebsiteSource: async (url: string) => {
-    const active = get().activeNotebook;
-    if (!active) throw new Error('No active notebook selected');
+    const active = get().activeMemorybook;
+    if (!active) throw new Error('No active memorybook selected');
 
     set({ isLoading: true, error: null });
     try {
       const source = await apiClient.post<any, SourceDocument>(
-        `/notebooks/${active.id}/sources/website`,
+        `/memorybooks/${active.id}/sources/website`,
         { url }
       );
 
@@ -259,7 +259,7 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
       const updatedActive = { ...active, sources: [source, ...currentSources] };
 
       set({
-        activeNotebook: updatedActive,
+        activeMemorybook: updatedActive,
         isLoading: false,
         isAddSourceModalOpen: false,
       });
@@ -273,13 +273,13 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
   },
 
   ingestYoutubeSource: async (url: string) => {
-    const active = get().activeNotebook;
-    if (!active) throw new Error('No active notebook selected');
+    const active = get().activeMemorybook;
+    if (!active) throw new Error('No active memorybook selected');
 
     set({ isLoading: true, error: null });
     try {
       const source = await apiClient.post<any, SourceDocument>(
-        `/notebooks/${active.id}/sources/youtube`,
+        `/memorybooks/${active.id}/sources/youtube`,
         { url }
       );
 
@@ -287,7 +287,7 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
       const updatedActive = { ...active, sources: [source, ...currentSources] };
 
       set({
-        activeNotebook: updatedActive,
+        activeMemorybook: updatedActive,
         isLoading: false,
         isAddSourceModalOpen: false,
       });
@@ -301,13 +301,13 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
   },
 
   createTextSource: async (title: string, content: string) => {
-    const active = get().activeNotebook;
-    if (!active) throw new Error('No active notebook selected');
+    const active = get().activeMemorybook;
+    if (!active) throw new Error('No active memorybook selected');
 
     set({ isLoading: true, error: null });
     try {
       const source = await apiClient.post<any, SourceDocument>(
-        `/notebooks/${active.id}/sources/text`,
+        `/memorybooks/${active.id}/sources/text`,
         { title, content }
       );
 
@@ -315,7 +315,7 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
       const updatedActive = { ...active, sources: [source, ...currentSources] };
 
       set({
-        activeNotebook: updatedActive,
+        activeMemorybook: updatedActive,
         isLoading: false,
         isAddSourceModalOpen: false,
       });
@@ -329,17 +329,17 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
   },
 
   deleteSource: async (sourceId: string) => {
-    const active = get().activeNotebook;
-    if (!active) throw new Error('No active notebook selected');
+    const active = get().activeMemorybook;
+    if (!active) throw new Error('No active memorybook selected');
 
     set({ isLoading: true, error: null });
     try {
-      await apiClient.delete(`/notebooks/${active.id}/sources/${sourceId}`);
+      await apiClient.delete(`/memorybooks/${active.id}/sources/${sourceId}`);
       const updatedSources = (active.sources || []).filter((s) => s.id !== sourceId);
       const updatedActive = { ...active, sources: updatedSources };
 
       set({
-        activeNotebook: updatedActive,
+        activeMemorybook: updatedActive,
         isLoading: false,
       });
     } catch (err: any) {
@@ -350,10 +350,10 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
 
   // Notes Implementation
   fetchNotes: async () => {
-    const active = get().activeNotebook;
+    const active = get().activeMemorybook;
     if (!active) return;
     try {
-      const notesList = await apiClient.get<any, Note[]>(`/notebooks/${active.id}/notes`);
+      const notesList = await apiClient.get<any, Note[]>(`/memorybooks/${active.id}/notes`);
       set({ activeNotes: notesList });
     } catch (err: any) {
       // ignore
@@ -361,10 +361,10 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
   },
 
   createNote: async (title: string, content: string, type = 'user_note') => {
-    const active = get().activeNotebook;
-    if (!active) throw new Error('No active notebook selected');
+    const active = get().activeMemorybook;
+    if (!active) throw new Error('No active memorybook selected');
     try {
-      const newNote = await apiClient.post<any, Note>(`/notebooks/${active.id}/notes`, { title, content, type });
+      const newNote = await apiClient.post<any, Note>(`/memorybooks/${active.id}/notes`, { title, content, type });
       set({ activeNotes: [newNote, ...get().activeNotes] });
       return newNote;
     } catch (err: any) {
@@ -374,10 +374,10 @@ export const useNotebookStore = create<NotebookState>((set, get) => ({
   },
 
   deleteNote: async (noteId: string) => {
-    const active = get().activeNotebook;
-    if (!active) throw new Error('No active notebook selected');
+    const active = get().activeMemorybook;
+    if (!active) throw new Error('No active memorybook selected');
     try {
-      await apiClient.delete(`/notebooks/${active.id}/notes/${noteId}`);
+      await apiClient.delete(`/memorybooks/${active.id}/notes/${noteId}`);
       set({ activeNotes: get().activeNotes.filter((n) => n.id !== noteId) });
     } catch (err: any) {
       set({ error: err.message || 'Failed to delete note' });

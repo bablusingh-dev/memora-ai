@@ -12,7 +12,7 @@ cloudinary.config({
 export async function uploadToCloudinary(
   fileBuffer: Buffer,
   fileName: string,
-  folder = 'memora-ai/sources'
+  folder = 'memorybook/sources'
 ): Promise<string> {
   if (
     !env.CLOUDINARY_CLOUD_NAME ||

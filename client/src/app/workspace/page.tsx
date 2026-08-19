@@ -2,13 +2,13 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
-import { SourcesPanel } from '@/components/notebook/SourcesPanel';
-import { ChatStudioPanel } from '@/components/notebook/ChatStudioPanel';
-import { AudioOverviewPanel } from '@/components/notebook/AudioOverviewPanel';
-import { NotebookSwitcher } from '@/components/notebook/NotebookSwitcher';
-import { ModuleRail } from '@/components/notebook/ModuleRail';
-import { CreateNotebookModal } from '@/components/notebook/CreateNotebookModal';
-import { AddSourceModal } from '@/components/notebook/AddSourceModal';
+import { SourcesPanel } from '@/components/memorybook/SourcesPanel';
+import { ChatStudioPanel } from '@/components/memorybook/ChatStudioPanel';
+import { AudioOverviewPanel } from '@/components/memorybook/AudioOverviewPanel';
+import { MemorybookSwitcher } from '@/components/memorybook/MemorybookSwitcher';
+import { ModuleRail } from '@/components/memorybook/ModuleRail';
+import { CreateMemorybookModal } from '@/components/memorybook/CreateMemorybookModal';
+import { AddSourceModal } from '@/components/memorybook/AddSourceModal';
 import {
   Brain,
   Settings,
@@ -23,7 +23,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { SignInButton, UserButton, useAuth } from '@clerk/nextjs';
 import { setAuthToken, setTokenGetter } from '@/lib/api-client';
-import { useNotebookStore } from '@/store/useNotebookStore';
+import { useMemorybookStore } from '@/store/useMemorybookStore';
 import { ThemeToggle } from '@/components/ThemeToggle';
 import {
   Dialog,
@@ -75,8 +75,8 @@ export default function WorkspaceDashboardPage() {
   const [isHelpOpen, setHelpOpen] = useState(false);
   const [isSettingsOpen, setSettingsOpen] = useState(false);
 
-  const { activeNotebook } = useNotebookStore();
-  const sourceCount = activeNotebook?.sources?.length || 0;
+  const { activeMemorybook } = useMemorybookStore();
+  const sourceCount = activeMemorybook?.sources?.length || 0;
 
   useEffect(() => {
     async function syncTokenAndFetch() {
@@ -91,7 +91,7 @@ export default function WorkspaceDashboardPage() {
 
       if (!hasFetchedRef.current) {
         hasFetchedRef.current = true;
-        await useNotebookStore.getState().fetchNotebooks();
+        await useMemorybookStore.getState().fetchMemorybooks();
       }
     }
 
@@ -101,7 +101,7 @@ export default function WorkspaceDashboardPage() {
   return (
     <div className="flex flex-col h-screen overflow-hidden bg-slate-100/80 dark:bg-black text-foreground">
       {isValidClerkKey && <ClerkAuthSync />}
-      <CreateNotebookModal />
+      <CreateMemorybookModal />
       <AddSourceModal />
 
       {/* Help Modal */}
@@ -110,7 +110,7 @@ export default function WorkspaceDashboardPage() {
           <DialogHeader className="bg-white dark:bg-zinc-900 p-4 rounded-2xl shadow-2xs">
             <DialogTitle className="flex items-center gap-2 text-base font-bold text-foreground">
               <HelpCircle className="w-5 h-5 text-primary" />
-              <span>Memora AI Workspace Guide</span>
+              <span>Memorybook Workspace Guide</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground leading-relaxed mt-1">
               Your grounded research workspace — full-text BM25 search plus PDF, web, and video ingestion.
@@ -217,15 +217,15 @@ export default function WorkspaceDashboardPage() {
               <Brain className="w-4 h-4" />
             </div>
             <span className="font-bold text-sm tracking-tight hidden md:inline-block text-foreground">
-              Memora AI
+              Memorybook
             </span>
           </div>
 
-          <NotebookSwitcher />
+          <MemorybookSwitcher />
         </div>
 
         <div className="flex items-center space-x-2">
-          {activeNotebook && (
+          {activeMemorybook && (
             <Badge
               variant="secondary"
               className="hidden lg:flex text-[11px] font-medium bg-muted/60 text-muted-foreground px-2.5 py-1 rounded-2xl border-0 gap-1"

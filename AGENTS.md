@@ -61,9 +61,9 @@ Strong success criteria let you loop independently. Weak criteria ("make it work
 ---
 
 
-# AI Agent System Instructions & Engineering Guidelines: memora-ai
+# AI Agent System Instructions & Engineering Guidelines: Memorybook
 
-Welcome to **memora-ai** (Notebook LLM Alternative). This repository is engineered with a production-grade full-stack architecture separated into standalone `server/` (Node.js, Express, TypeScript, Drizzle ORM, ParadeDB BM25, Clerk Express Auth, Svix Webhooks) and `client/` (Next.js App Router, TypeScript, Tailwind CSS, shadcn/ui, Clerk Auth) directories.
+Welcome to **Memorybook** (a NotebookLM alternative). This repository is engineered with a production-grade full-stack architecture separated into standalone `server/` (Node.js, Express, TypeScript, Drizzle ORM, ParadeDB BM25, Clerk Express Auth, Svix Webhooks) and `client/` (Next.js App Router, TypeScript, Tailwind CSS, shadcn/ui, Clerk Auth) directories.
 
 When working on this codebase, **ALL AI AGENTS MUST ADHERE TO THE FOLLOWING GUIDELINES AND CONVENTIONS**.
 
@@ -75,7 +75,7 @@ When working on this codebase, **ALL AI AGENTS MUST ADHERE TO THE FOLLOWING GUID
 > **CRITICAL RULE**: Drizzle ORM is used for table schemas and type-safe CRUD operations, while **ParadeDB (`pg_search`)** is used for BM25 algorithmic full-text search.
 
 ### Rules for Database Operations:
-1. **Drizzle Schema Cleanliness**: Keep `server/src/db/schema.ts` focused on standard PostgreSQL table definitions (`users`, `notebooks`, `source_documents`, `document_chunks`, `notes`, `chat_messages`), column types, foreign keys, and indexes. Do NOT attempt to express ParadeDB-specific custom index types (`USING bm25`, `USING hnsw`) directly in Drizzle schema definitions if Drizzle generator fails to parse them — those live in the raw-SQL self-heal block in `server/src/db/index.ts` instead (see rule 2). The one exception is the pgvector `embedding` column itself, which Drizzle *can* express via `customType` (see the `vector()` helper at the top of `schema.ts`) — only the index type needs raw SQL.
+1. **Drizzle Schema Cleanliness**: Keep `server/src/db/schema.ts` focused on standard PostgreSQL table definitions (`users`, `memorybooks`, `source_documents`, `document_chunks`, `notes`, `chat_messages`), column types, foreign keys, and indexes. Do NOT attempt to express ParadeDB-specific custom index types (`USING bm25`, `USING hnsw`) directly in Drizzle schema definitions if Drizzle generator fails to parse them — those live in the raw-SQL self-heal block in `server/src/db/index.ts` instead (see rule 2). The one exception is the pgvector `embedding` column itself, which Drizzle *can* express via `customType` (see the `vector()` helper at the top of `schema.ts`) — only the index type needs raw SQL.
 2. **Database Connection Verification**: `server/src/db/index.ts` exposes `connectDB()` and pool connection listeners that log database connection events using Pino logger. It also runs a `DO $$ ... $$` block on every boot that self-heals schema drift (new columns, indexes) — this repo has no automatic migration runner wired into boot (drizzle-kit migrations exist under `server/src/db/migrations/` for history/versioning, generated via `npm run db:generate`, but must be applied manually with `npm run db:migrate`; they are not run automatically). When adding a column/index that the app depends on at runtime, add it to both: the `DO $$` block (so it's live immediately) and generate a matching migration (so history stays in sync).
 3. **Encapsulate BM25 Search in Repositories**: All ParadeDB BM25 search queries must be executed within `server/src/repositories/` using Drizzle's `sql` template literal tag.
    - **Example BM25 Query**:
@@ -85,7 +85,7 @@ When working on this codebase, **ALL AI AGENTS MUST ADHERE TO THE FOLLOWING GUID
      
      export async function searchChunksBM25(query: string, limit = 10) {
        return await db.execute(sql`
-         SELECT id, notebook_id, content, score() AS score
+         SELECT id, memorybook_id, content, score() AS score
          FROM document_chunks
          WHERE content @@@ ${query}
          ORDER BY score DESC
@@ -137,7 +137,7 @@ All work that (a) doesn't need to finish before the HTTP response, (b) should su
    ```
 4. **Structured Pino Logging**: Use `logger` from `@/utils/logger` instead of `console.log`. Log contextual parameters as JSON objects:
    ```ts
-   logger.info({ userId, notebookId, sourceCount }, 'Processed notebook source upload');
+   logger.info({ userId, memorybookId, sourceCount }, 'Processed memorybook source upload');
    logger.error({ error, requestId }, 'Failed to parse document chunk');
    ```
 

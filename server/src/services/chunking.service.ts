@@ -483,7 +483,7 @@ function applyOverlap(
 
 export class ChunkingService {
   /**
-   * Structure-aware chunker for NotebookLLM ingestion.
+   * Structure-aware chunker for MemorybookLLM ingestion.
    *
    * Automatically detects whether the source is Markdown, a speaker-turn
    * transcript, or plain text, then applies the appropriate splitting strategy.

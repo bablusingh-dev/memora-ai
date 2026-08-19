@@ -1,7 +1,7 @@
 {
-  "name": "memora-ai-server",
+  "name": "memorybook-server",
   "version": "1.0.0",
-  "description": "Production-grade backend service for memora-ai (Notebook LLM alternative)",
+  "description": "Production-grade backend service for Memorybook (a NotebookLM alternative)",
   "main": "dist/server.js",
   "scripts": {
     "dev": "tsx watch src/server.ts",

@@ -13,7 +13,7 @@ export function Footer() {
               <Brain className="w-5 h-5" />
             </div>
             <div>
-              <p className="font-bold text-sm tracking-tight text-foreground">Memora AI</p>
+              <p className="font-bold text-sm tracking-tight text-foreground">Memorybook</p>
               <p className="text-xs text-muted-foreground font-normal">Your research workspace — sources, conversation, and audio, all grounded.</p>
             </div>
           </div>
@@ -27,7 +27,7 @@ export function Footer() {
           </div>
 
           <div className="text-xs text-muted-foreground font-normal">
-            © {new Date().getFullYear()} Memora AI. All rights reserved.
+            © {new Date().getFullYear()} Memorybook. All rights reserved.
           </div>
         </div>
       </div>

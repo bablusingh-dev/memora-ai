@@ -8,7 +8,7 @@ import { Container } from '@/components/landing/shared/Container';
 import { SectionEyebrow } from '@/components/landing/shared/SectionEyebrow';
 import { Reveal } from '@/components/landing/shared/Reveal';
 import { useAuth, useClerk } from '@clerk/nextjs';
-import { useNotebookStore } from '@/store/useNotebookStore';
+import { useMemorybookStore } from '@/store/useMemorybookStore';
 
 const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 const isValidClerkKey =
@@ -24,7 +24,7 @@ const upcoming = [
 
 export function ClosingCta() {
   const router = useRouter();
-  const setCreateModalOpen = useNotebookStore((state) => state.setCreateModalOpen);
+  const setCreateModalOpen = useMemorybookStore((state) => state.setCreateModalOpen);
 
   let isSignedIn = false;
   let clerk: any = null;

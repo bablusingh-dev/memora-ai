@@ -1,5 +1,5 @@
 /**
- * Cognitive memory types for the Memora AI multi-tier memory system.
+ * Cognitive memory types for the Memorybook multi-tier memory system.
  *
  * Conceptual layers (clear boundaries — do NOT mix):
  *   1. CONVERSATION — recent turns in this session
@@ -96,7 +96,7 @@ export interface EpisodicMemoryItem {
   id: string;
   summary: string;
   sessionDate: Date | string;
-  notebookId: string;
+  memorybookId: string;
   keyTakeaways: string[];
 }
 

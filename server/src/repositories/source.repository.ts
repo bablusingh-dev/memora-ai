@@ -15,44 +15,44 @@ export class SourceRepository {
     return result[0] || null;
   }
 
-  async findByNotebookId(notebookId: string): Promise<SourceDocument[]> {
+  async findByMemorybookId(memorybookId: string): Promise<SourceDocument[]> {
     return await db
       .select()
       .from(sourceDocuments)
-      .where(eq(sourceDocuments.notebookId, notebookId))
+      .where(eq(sourceDocuments.memorybookId, memorybookId))
       .orderBy(sourceDocuments.createdAt);
   }
 
   /**
-   * Find an existing source with the same content hash in this notebook —
+   * Find an existing source with the same content hash in this memorybook —
    * the authoritative dedup check. Callers should also handle a unique_violation
    * (23505) from `createSource`/`updateSource` as the race-condition backstop
    * for two concurrent ingestions of identical content (see
-   * idx_source_documents_notebook_hash in db/index.ts).
+   * idx_source_documents_memorybook_hash in db/index.ts).
    */
-  async findByContentHash(notebookId: string, contentHash: string): Promise<SourceDocument | null> {
+  async findByContentHash(memorybookId: string, contentHash: string): Promise<SourceDocument | null> {
     const result = await db
       .select()
       .from(sourceDocuments)
-      .where(and(eq(sourceDocuments.notebookId, notebookId), eq(sourceDocuments.contentHash, contentHash)))
+      .where(and(eq(sourceDocuments.memorybookId, memorybookId), eq(sourceDocuments.contentHash, contentHash)))
       .limit(1);
     return result[0] || null;
   }
 
   /**
-   * Find an in-flight or completed source with the same URL in this notebook.
+   * Find an in-flight or completed source with the same URL in this memorybook.
    * Used as a cheap synchronous pre-check for website/YouTube ingestion,
    * where the content (and therefore its hash) isn't known until the async
    * pipeline fetches it — this only catches the common "double click" case,
    * not genuine races; the content-hash unique index is the real backstop.
    */
-  async findActiveByUrl(notebookId: string, fileUrl: string): Promise<SourceDocument | null> {
+  async findActiveByUrl(memorybookId: string, fileUrl: string): Promise<SourceDocument | null> {
     const result = await db
       .select()
       .from(sourceDocuments)
       .where(
         and(
-          eq(sourceDocuments.notebookId, notebookId),
+          eq(sourceDocuments.memorybookId, memorybookId),
           eq(sourceDocuments.fileUrl, fileUrl)
         )
       )
@@ -103,10 +103,10 @@ export class SourceRepository {
     await db.delete(documentChunks).where(eq(documentChunks.sourceId, sourceId));
   }
 
-  async deleteSource(id: string, notebookId: string): Promise<boolean> {
+  async deleteSource(id: string, memorybookId: string): Promise<boolean> {
     const result = await db
       .delete(sourceDocuments)
-      .where(and(eq(sourceDocuments.id, id), eq(sourceDocuments.notebookId, notebookId)))
+      .where(and(eq(sourceDocuments.id, id), eq(sourceDocuments.memorybookId, memorybookId)))
       .returning();
     return result.length > 0;
   }

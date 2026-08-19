@@ -71,7 +71,7 @@ export interface IGraphProvider {
    */
   upsertBatchTriples(
     triples: GraphTriple[],
-    notebookId: string,
+    memorybookId: string,
     userId?: string
   ): Promise<void>;
 
@@ -81,7 +81,7 @@ export interface IGraphProvider {
    */
   getNeighborsByQuery(
     entityNames: string[],
-    notebookId: string,
+    memorybookId: string,
     relevantRelTypes?: string[],
     maxHops?: number
   ): Promise<GraphQueryResult>;

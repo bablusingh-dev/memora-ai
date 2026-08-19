@@ -62,11 +62,11 @@ export async function connectDB() {
     await client.query(`
       DO $$
       BEGIN
-        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'notebooks') AND
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'memorybooks') AND
            EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'users') THEN
           CREATE TABLE IF NOT EXISTS chat_messages (
             id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-            notebook_id UUID NOT NULL REFERENCES notebooks(id) ON DELETE CASCADE,
+            memorybook_id UUID NOT NULL REFERENCES memorybooks(id) ON DELETE CASCADE,
             user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
             role TEXT NOT NULL,
             content TEXT NOT NULL,
@@ -74,14 +74,14 @@ export async function connectDB() {
             is_graph_indexed BOOLEAN NOT NULL DEFAULT FALSE,
             created_at TIMESTAMP NOT NULL DEFAULT NOW()
           );
-          CREATE INDEX IF NOT EXISTS idx_chat_messages_notebook_id ON chat_messages(notebook_id);
+          CREATE INDEX IF NOT EXISTS idx_chat_messages_memorybook_id ON chat_messages(memorybook_id);
           ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS is_graph_indexed BOOLEAN NOT NULL DEFAULT FALSE;
           CREATE INDEX IF NOT EXISTS idx_chat_messages_graph_indexed ON chat_messages(is_graph_indexed);
 
           -- Composite index for the bounded "last N turns" query the memory
-          -- coordinator uses (ORDER BY created_at DESC LIMIT N per notebook)
-          -- instead of fetching a notebook's entire chat history every turn.
-          CREATE INDEX IF NOT EXISTS idx_chat_messages_notebook_created ON chat_messages(notebook_id, created_at);
+          -- coordinator uses (ORDER BY created_at DESC LIMIT N per memorybook)
+          -- instead of fetching a memorybook's entire chat history every turn.
+          CREATE INDEX IF NOT EXISTS idx_chat_messages_memorybook_created ON chat_messages(memorybook_id, created_at);
         END IF;
 
         IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'document_chunks') THEN
@@ -89,7 +89,7 @@ export async function connectDB() {
           CREATE INDEX IF NOT EXISTS idx_document_chunks_graph_indexed ON document_chunks(is_graph_indexed);
 
           -- BM25 index must cover retrieval_content (the column actually queried by
-          -- searchBM25 — see notebook.repository.ts) as well as content, the legacy
+          -- searchBM25 — see memorybook.repository.ts) as well as content, the legacy
           -- fallback column for chunks ingested before retrieval_content existed.
           -- If an older index only covers content, drop and rebuild it here so
           -- every deploy self-heals instead of silently falling back to ILIKE.
@@ -144,12 +144,12 @@ export async function connectDB() {
           ALTER TABLE source_documents ADD COLUMN IF NOT EXISTS stage TEXT;
 
           -- Dedup backstop: two concurrent ingestions of identical content in
-          -- the same notebook race past the application-level pre-check, but
+          -- the same memorybook race past the application-level pre-check, but
           -- can't both win here. NULL content_hash (legacy rows, or rows not
           -- yet far enough through the async pipeline to know their hash) is
           -- deliberately excluded so it never blocks unrelated inserts.
-          CREATE UNIQUE INDEX IF NOT EXISTS idx_source_documents_notebook_hash
-            ON source_documents(notebook_id, content_hash)
+          CREATE UNIQUE INDEX IF NOT EXISTS idx_source_documents_memorybook_hash
+            ON source_documents(memorybook_id, content_hash)
             WHERE content_hash IS NOT NULL;
         END IF;
       END $$;

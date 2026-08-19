@@ -21,7 +21,7 @@ export interface ApiErrorResponse {
 
 export interface Note {
   id: string;
-  notebookId: string;
+  memorybookId: string;
   title: string;
   content: string;
   type: 'user_note' | 'ai_summary' | 'study_guide';
@@ -31,7 +31,7 @@ export interface Note {
 
 export interface SourceDocument {
   id: string;
-  notebookId: string;
+  memorybookId: string;
   title: string;
   fileType: 'pdf' | 'web' | 'youtube' | 'text';
   fileUrl?: string;
@@ -43,7 +43,7 @@ export interface SourceDocument {
   createdAt: string;
 }
 
-export interface Notebook {
+export interface Memorybook {
   id: string;
   userId: string;
   title: string;
@@ -57,7 +57,7 @@ export interface Notebook {
 export interface DocumentChunk {
   id: string;
   sourceId: string;
-  notebookId: string;
+  memorybookId: string;
   content: string;
   chunkIndex: number;
   bm25_score?: number;

@@ -1,5 +1,5 @@
 import { Response } from 'express';
-import { NotebookService } from '../services/notebook.service.js';
+import { MemorybookService } from '../services/memorybook.service.js';
 import { RagService } from '../services/rag.service.js';
 import { ApiResponse } from '../utils/api-response.js';
 import { asyncHandler } from '../utils/async-handler.js';
@@ -7,15 +7,15 @@ import { z } from 'zod';
 import { BadRequestError } from '../utils/api-error.js';
 import { AuthenticatedRequest } from '../middlewares/auth.middleware.js';
 
-const notebookService = new NotebookService();
+const memorybookService = new MemorybookService();
 const ragService = new RagService();
 
-const createNotebookSchema = z.object({
+const createMemorybookSchema = z.object({
   title: z.string().min(1, 'Title is required'),
   description: z.string().optional(),
 });
 
-const updateNotebookSchema = z.object({
+const updateMemorybookSchema = z.object({
   title: z.string().min(1, 'Title is required').optional(),
   description: z.string().optional(),
 });
@@ -25,79 +25,79 @@ const searchSchema = z.object({
   topK: z.string().optional().transform((val) => (val ? parseInt(val, 10) : 5)),
 });
 
-export const getNotebooks = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+export const getMemorybooks = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.userId!;
-  const notebooks = await notebookService.getAllNotebooks(userId);
+  const memorybooks = await memorybookService.getAllMemorybooks(userId);
   return ApiResponse.success({
     res,
-    data: notebooks,
-    message: 'Notebooks fetched successfully',
+    data: memorybooks,
+    message: 'Memorybooks fetched successfully',
   });
 });
 
-export const getNotebookById = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+export const getMemorybookById = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const id = req.params.id as string;
   const userId = req.userId!;
-  const notebook = await notebookService.getNotebookById(id, userId);
+  const memorybook = await memorybookService.getMemorybookById(id, userId);
   return ApiResponse.success({
     res,
-    data: notebook,
-    message: 'Notebook details fetched successfully',
+    data: memorybook,
+    message: 'Memorybook details fetched successfully',
   });
 });
 
-export const createNotebook = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+export const createMemorybook = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const userId = req.userId!;
-  const parseResult = createNotebookSchema.safeParse(req.body);
+  const parseResult = createMemorybookSchema.safeParse(req.body);
   if (!parseResult.success) {
-    throw new BadRequestError('Invalid notebook payload', parseResult.error.format());
+    throw new BadRequestError('Invalid memorybook payload', parseResult.error.format());
   }
 
-  const newNotebook = await notebookService.createNotebook({
+  const newMemorybook = await memorybookService.createMemorybook({
     ...parseResult.data,
     userId,
   });
 
   return ApiResponse.created({
     res,
-    data: newNotebook,
-    message: 'Notebook created successfully',
+    data: newMemorybook,
+    message: 'Memorybook created successfully',
   });
 });
 
-export const updateNotebook = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+export const updateMemorybook = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const id = req.params.id as string;
   const userId = req.userId!;
-  const parseResult = updateNotebookSchema.safeParse(req.body);
+  const parseResult = updateMemorybookSchema.safeParse(req.body);
   if (!parseResult.success) {
     throw new BadRequestError('Invalid update payload', parseResult.error.format());
   }
 
-  const updated = await notebookService.updateNotebook(id, userId, parseResult.data);
+  const updated = await memorybookService.updateMemorybook(id, userId, parseResult.data);
 
   return ApiResponse.success({
     res,
     data: updated,
-    message: 'Notebook updated successfully',
+    message: 'Memorybook updated successfully',
   });
 });
 
-export const deleteNotebook = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+export const deleteMemorybook = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const id = req.params.id as string;
   const userId = req.userId!;
-  await notebookService.deleteNotebook(id, userId);
+  await memorybookService.deleteMemorybook(id, userId);
   return ApiResponse.success({
     res,
-    message: `Notebook '${id}' deleted successfully`,
+    message: `Memorybook '${id}' deleted successfully`,
   });
 });
 
-export const searchNotebookRAG = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
+export const searchMemorybookRAG = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
   const id = req.params.id as string;
   const userId = req.userId!;
   
-  // Verify user owns notebook first
-  await notebookService.getNotebookById(id, userId);
+  // Verify user owns memorybook first
+  await memorybookService.getMemorybookById(id, userId);
 
   const parseResult = searchSchema.safeParse(req.query);
   if (!parseResult.success) {

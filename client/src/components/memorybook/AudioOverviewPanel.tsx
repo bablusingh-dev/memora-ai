@@ -26,7 +26,7 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
-import { useNotebookStore } from '@/store/useNotebookStore';
+import { useMemorybookStore } from '@/store/useMemorybookStore';
 import {
   Dialog,
   DialogContent,
@@ -36,7 +36,7 @@ import {
 } from '@/components/ui/dialog';
 
 export function AudioOverviewPanel() {
-  const { activeNotebook, activeNotes, createNote, deleteNote } = useNotebookStore();
+  const { activeMemorybook, activeNotes, createNote, deleteNote } = useMemorybookStore();
   const [activeTab, setActiveTab] = useState('audio');
 
   // Note Modal States
@@ -70,7 +70,7 @@ export function AudioOverviewPanel() {
   };
 
   const generateAIArtifact = async (type: string, title: string, content: string) => {
-    if (!activeNotebook) return;
+    if (!activeMemorybook) return;
     setIsSubmitting(true);
     try {
       await createNote(
@@ -207,7 +207,7 @@ export function AudioOverviewPanel() {
                 </Button>
                 <Button
                   onClick={() => setIsPlaying(!isPlaying)}
-                  disabled={!activeNotebook}
+                  disabled={!activeMemorybook}
                   className="h-10 w-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground p-0 flex items-center justify-center shadow-xs"
                 >
                   {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
@@ -221,7 +221,7 @@ export function AudioOverviewPanel() {
                   generateAIArtifact(
                     'ai_summary',
                     'Audio Overview Transcript',
-                    `# Audio Overview Transcript for ${activeNotebook?.title || 'Workspace'}\n\n- Host A: Welcome back to Memora AI Studio.\n- Host B: Today we are examining the core principles of vectorless BM25 search vs dense embeddings.\n- Key takeaways: ParadeDB provides exact BM25 keyword precision.`
+                    `# Audio Overview Transcript for ${activeMemorybook?.title || 'Workspace'}\n\n- Host A: Welcome back to Memorybook Studio.\n- Host B: Today we are examining the core principles of vectorless BM25 search vs dense embeddings.\n- Key takeaways: ParadeDB provides exact BM25 keyword precision.`
                   )
                 }
                 className="h-8 w-8 text-muted-foreground hover:text-foreground"
@@ -234,12 +234,12 @@ export function AudioOverviewPanel() {
 
           {/* Quick AI Summary Note Generator */}
           <Button
-            disabled={!activeNotebook || isSubmitting}
+            disabled={!activeMemorybook || isSubmitting}
             onClick={() =>
               generateAIArtifact(
                 'ai_summary',
                 `Executive Briefing - ${new Date().toLocaleDateString()}`,
-                `# Executive Briefing: ${activeNotebook?.title}\n\n### Key Synthesized Themes:\n1. **Grounded Multi-Document Context**: Real-time integration of PDFs, Web scrapings, and YouTube transcripts.\n2. **ParadeDB BM25 Precision**: Hybrid vectorless retrieval for deterministic term matching.\n3. **Clerk Express Multi-Tenant Security**: Enforced session tokens.`
+                `# Executive Briefing: ${activeMemorybook?.title}\n\n### Key Synthesized Themes:\n1. **Grounded Multi-Document Context**: Real-time integration of PDFs, Web scrapings, and YouTube transcripts.\n2. **ParadeDB BM25 Precision**: Hybrid vectorless retrieval for deterministic term matching.\n3. **Clerk Express Multi-Tenant Security**: Enforced session tokens.`
               )
             }
             className="w-full justify-center space-x-2 bg-background/80 hover:bg-background text-foreground text-xs h-9 rounded-2xl border-0 font-semibold shadow-2xs"
@@ -263,7 +263,7 @@ export function AudioOverviewPanel() {
               generateAIArtifact(
                 'study_guide',
                 'Comprehensive Study Guide',
-                `# Study Guide: ${activeNotebook?.title || 'Workspace'}\n\n### Core Concepts:\n- **BM25 Scoring**: Evaluates term frequency and inverse document frequency.\n- **Firecrawl**: Transforms complex Web HTML into clean Markdown.\n- **Svix Webhook Handling**: Ensures zero-latency user synchronization.`
+                `# Study Guide: ${activeMemorybook?.title || 'Workspace'}\n\n### Core Concepts:\n- **BM25 Scoring**: Evaluates term frequency and inverse document frequency.\n- **Firecrawl**: Transforms complex Web HTML into clean Markdown.\n- **Svix Webhook Handling**: Ensures zero-latency user synchronization.`
               )
             }
             className="bg-background/90 dark:bg-card hover:bg-background transition-colors duration-150 cursor-pointer border-0 shadow-2xs rounded-2xl p-3 flex items-center space-x-3"
@@ -282,7 +282,7 @@ export function AudioOverviewPanel() {
               generateAIArtifact(
                 'faq',
                 'Frequently Asked Questions',
-                `# FAQ: ${activeNotebook?.title || 'Workspace'}\n\n**Q: How does ParadeDB handle search?**\n*A: ParadeDB uses Postgres-native BM25 index extension via pg_search syntax.*\n\n**Q: How are YouTube videos ingested?**\n*A: YouTube video IDs are passed to the backend transcript API for text extraction.*`
+                `# FAQ: ${activeMemorybook?.title || 'Workspace'}\n\n**Q: How does ParadeDB handle search?**\n*A: ParadeDB uses Postgres-native BM25 index extension via pg_search syntax.*\n\n**Q: How are YouTube videos ingested?**\n*A: YouTube video IDs are passed to the backend transcript API for text extraction.*`
               )
             }
             className="bg-background/90 dark:bg-card hover:bg-background transition-colors duration-150 cursor-pointer border-0 shadow-2xs rounded-2xl p-3 flex items-center space-x-3"
@@ -301,7 +301,7 @@ export function AudioOverviewPanel() {
               generateAIArtifact(
                 'timeline',
                 'Project & Concept Timeline',
-                `# Concept Timeline: ${activeNotebook?.title || 'Workspace'}\n\n- **Phase 1**: Database schema design & Drizzle ORM setup.\n- **Phase 2**: Clerk authentication integration & Express Middleware.\n- **Phase 3**: RAG pipeline & ParadeDB BM25 query construction.`
+                `# Concept Timeline: ${activeMemorybook?.title || 'Workspace'}\n\n- **Phase 1**: Database schema design & Drizzle ORM setup.\n- **Phase 2**: Clerk authentication integration & Express Middleware.\n- **Phase 3**: RAG pipeline & ParadeDB BM25 query construction.`
               )
             }
             className="bg-background/90 dark:bg-card hover:bg-background transition-colors duration-150 cursor-pointer border-0 shadow-2xs rounded-2xl p-3 flex items-center space-x-3"
@@ -332,7 +332,7 @@ export function AudioOverviewPanel() {
               />
             </div>
             <Button
-              disabled={!activeNotebook}
+              disabled={!activeMemorybook}
               onClick={() => setCreateNoteOpen(true)}
               size="sm"
               className="bg-primary text-primary-foreground font-semibold h-8 text-xs px-3 rounded-xl border-0 shadow-2xs gap-1"

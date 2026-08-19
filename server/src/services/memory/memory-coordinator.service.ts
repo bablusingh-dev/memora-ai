@@ -1,6 +1,6 @@
 import { MemoryFactory } from '../../providers/memory/memory.factory.js';
 import { GraphFactory } from '../../providers/graph/graph.factory.js';
-import { NotebookRepository } from '../../repositories/notebook.repository.js';
+import { MemorybookRepository } from '../../repositories/memorybook.repository.js';
 import { ChatRepository, ChatMessage } from '../../repositories/chat.repository.js';
 import { MemoryItem } from '../../providers/memory/memory.interface.js';
 import { GraphQueryResult } from '../../providers/graph/graph.interface.js';
@@ -35,7 +35,7 @@ export interface QueryDependentMemories {
 export class MemoryCoordinatorService {
   private memoryProvider = MemoryFactory.getProvider();
   private graphProvider = GraphFactory.getProvider();
-  private notebookRepo = new NotebookRepository();
+  private memorybookRepo = new MemorybookRepository();
   private chatRepo = new ChatRepository();
 
   /**
@@ -46,16 +46,16 @@ export class MemoryCoordinatorService {
    * query; see streamAgentChat).
    */
   async retrieveAllMemories(
-    notebookId: string,
+    memorybookId: string,
     userId: string,
     query: string,
     expandedKeywords: string[] = []
   ): Promise<CognitiveMemoryBundle> {
     const [independent, dependent] = await Promise.all([
-      this.retrieveQueryIndependentMemories(notebookId, userId, query),
-      this.retrieveQueryDependentMemories(notebookId, query, expandedKeywords),
+      this.retrieveQueryIndependentMemories(memorybookId, userId, query),
+      this.retrieveQueryDependentMemories(memorybookId, query, expandedKeywords),
     ]);
-    return this.buildBundle(notebookId, userId, query, independent, dependent);
+    return this.buildBundle(memorybookId, userId, query, independent, dependent);
   }
 
   /**
@@ -67,13 +67,13 @@ export class MemoryCoordinatorService {
    * does) kick this off in parallel with the query-enhancement LLM call
    * instead of after it.
    */
-  async retrieveQueryIndependentMemories(notebookId: string, userId: string, query: string): Promise<QueryIndependentMemories> {
+  async retrieveQueryIndependentMemories(memorybookId: string, userId: string, query: string): Promise<QueryIndependentMemories> {
     const [recentChatMessages, userProfileMemories, semanticMemories, episodicMemories, proceduralMemories] = await Promise.all([
       // CONVERSATION layer — last N turns from Postgres, fetched with a
       // bounded query (ORDER BY created_at DESC LIMIT N) instead of pulling
-      // the notebook's entire history and slicing in application code.
-      this.chatRepo.findRecentByNotebookId(notebookId, userId, RECENT_TURNS_LIMIT).catch((error) => {
-        logger.error({ error, notebookId, userId }, 'CONVERSATION layer retrieval failed in memory coordinator');
+      // the memorybook's entire history and slicing in application code.
+      this.chatRepo.findRecentByMemorybookId(memorybookId, userId, RECENT_TURNS_LIMIT).catch((error) => {
+        logger.error({ error, memorybookId, userId }, 'CONVERSATION layer retrieval failed in memory coordinator');
         return [];
       }),
       this.memoryProvider.search(query, { userId, category: 'user_profile', limit: 3 }).catch((error) => {
@@ -103,11 +103,11 @@ export class MemoryCoordinatorService {
    * extraction are both sensitive to exact wording in a way mem0's semantic
    * search isn't), so callers should await query enhancement before calling
    * this — unlike retrieveQueryIndependentMemories. Neither layer is
-   * user-scoped (documents/graph belong to the notebook, not the caller),
+   * user-scoped (documents/graph belong to the memorybook, not the caller),
    * so unlike the independent half, this takes no userId.
    */
   async retrieveQueryDependentMemories(
-    notebookId: string,
+    memorybookId: string,
     query: string,
     expandedKeywords: string[] = []
   ): Promise<QueryDependentMemories> {
@@ -115,12 +115,12 @@ export class MemoryCoordinatorService {
     const relevantRelTypes = this.inferRelevantRelationships(query);
 
     const [graphResult, knowledgeChunks] = await Promise.all([
-      this.graphProvider.getNeighborsByQuery(entityCandidates, notebookId, relevantRelTypes, 2).catch((error) => {
-        logger.error({ error, notebookId, entityCandidates }, 'GRAPH layer retrieval failed in memory coordinator');
+      this.graphProvider.getNeighborsByQuery(entityCandidates, memorybookId, relevantRelTypes, 2).catch((error) => {
+        logger.error({ error, memorybookId, entityCandidates }, 'GRAPH layer retrieval failed in memory coordinator');
         return { entities: [], relations: [] };
       }),
-      this.retrieveDocumentLayer(notebookId, query, expandedKeywords).catch((error) => {
-        logger.error({ error, notebookId, query }, 'DOCUMENT layer retrieval failed in memory coordinator');
+      this.retrieveDocumentLayer(memorybookId, query, expandedKeywords).catch((error) => {
+        logger.error({ error, memorybookId, query }, 'DOCUMENT layer retrieval failed in memory coordinator');
         return [];
       }),
     ]);
@@ -133,7 +133,7 @@ export class MemoryCoordinatorService {
    * the context builder and system prompt consume. Pure mapping — no I/O.
    */
   buildBundle(
-    notebookId: string,
+    memorybookId: string,
     userId: string,
     query: string,
     independent: QueryIndependentMemories,
@@ -158,7 +158,7 @@ export class MemoryCoordinatorService {
       id: m.id,
       summary: m.memory,
       sessionDate: m.createdAt || new Date(),
-      notebookId,
+      memorybookId,
       keyTakeaways: [m.memory],
     }));
 
@@ -228,7 +228,7 @@ export class MemoryCoordinatorService {
     return {
       shortTerm: {
         type: 'short_term',
-        sessionId: notebookId,
+        sessionId: memorybookId,
         recentTurns: recentTurns.map((m) => ({ role: m.role, content: m.content })),
       },
       conversationHistory: recentTurns.map((m) => ({
@@ -263,10 +263,10 @@ export class MemoryCoordinatorService {
    * rather than adding a second top-level embedding call that branch would
    * have to wait on.
    */
-  private async retrieveDocumentLayer(notebookId: string, query: string, expandedKeywords: string[]) {
+  private async retrieveDocumentLayer(memorybookId: string, query: string, expandedKeywords: string[]) {
     const queryEmbedding = await embeddingService.embedQuerySafe(query);
     const queries = Array.from(new Set([query, ...expandedKeywords].filter(Boolean)));
-    return this.notebookRepo.searchHybrid(notebookId, queries, queryEmbedding, 5);
+    return this.memorybookRepo.searchHybrid(memorybookId, queries, queryEmbedding, 5);
   }
 
   /**

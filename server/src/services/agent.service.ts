@@ -2,7 +2,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { streamText, tool, isStepCount } from 'ai';
 import { z } from 'zod';
 import { env } from '../config/env.js';
-import { NotebookRepository } from '../repositories/notebook.repository.js';
+import { MemorybookRepository } from '../repositories/memorybook.repository.js';
 import { ChatRepository } from '../repositories/chat.repository.js';
 import { MemoryCoordinatorService } from './memory/memory-coordinator.service.js';
 import { ContextBuilderService } from './context-builder.service.js';
@@ -20,7 +20,7 @@ import { chatMessageCompleted } from '../inngest/events.js';
 import { BadRequestError, TooManyRequestsError } from '../utils/api-error.js';
 
 export class AgentService {
-  private notebookRepo: NotebookRepository;
+  private memorybookRepo: MemorybookRepository;
   private chatRepo: ChatRepository;
   private memoryCoordinator: MemoryCoordinatorService;
   private contextBuilder: ContextBuilderService;
@@ -39,7 +39,7 @@ export class AgentService {
   private static activeStreamCounts = new Map<string, number>();
 
   constructor() {
-    this.notebookRepo = new NotebookRepository();
+    this.memorybookRepo = new MemorybookRepository();
     this.chatRepo = new ChatRepository();
     this.memoryCoordinator = new MemoryCoordinatorService();
     this.contextBuilder = new ContextBuilderService();
@@ -62,23 +62,23 @@ export class AgentService {
     }
   }
 
-  async getChatHistory(notebookId: string, userId: string) {
-    const notebook = await this.notebookRepo.findById(notebookId, userId);
-    if (!notebook) throw new BadRequestError(`Notebook '${notebookId}' not found or access denied`);
-    return await this.chatRepo.findByNotebookId(notebookId, userId);
+  async getChatHistory(memorybookId: string, userId: string) {
+    const memorybook = await this.memorybookRepo.findById(memorybookId, userId);
+    if (!memorybook) throw new BadRequestError(`Memorybook '${memorybookId}' not found or access denied`);
+    return await this.chatRepo.findByMemorybookId(memorybookId, userId);
   }
 
-  async clearChatHistory(notebookId: string, userId: string) {
-    const notebook = await this.notebookRepo.findById(notebookId, userId);
-    if (!notebook) throw new BadRequestError(`Notebook '${notebookId}' not found or access denied`);
-    return await this.chatRepo.clearByNotebookId(notebookId, userId);
+  async clearChatHistory(memorybookId: string, userId: string) {
+    const memorybook = await this.memorybookRepo.findById(memorybookId, userId);
+    if (!memorybook) throw new BadRequestError(`Memorybook '${memorybookId}' not found or access denied`);
+    return await this.chatRepo.clearByMemorybookId(memorybookId, userId);
   }
 
   /**
    * Execute Agentic RAG chat with multi-layer memory, tool calling, and streaming.
    */
   async streamAgentChat(
-    notebookId: string,
+    memorybookId: string,
     userId: string,
     messages: any[],
     options: { enableWebSearch?: boolean } = {}
@@ -90,7 +90,7 @@ export class AgentService {
     }
 
     try {
-      return await this.doStreamAgentChat(notebookId, userId, messages, options);
+      return await this.doStreamAgentChat(memorybookId, userId, messages, options);
     } catch (err) {
       // Only reached if setup fails before streamText is called — once
       // streaming starts, the slot is released from onFinish/onError below
@@ -101,15 +101,15 @@ export class AgentService {
   }
 
   private async doStreamAgentChat(
-    notebookId: string,
+    memorybookId: string,
     userId: string,
     messages: any[],
     options: { enableWebSearch?: boolean }
   ) {
     const isWebSearchEnabled = Boolean(options.enableWebSearch);
 
-    const notebook = await this.notebookRepo.findById(notebookId, userId);
-    if (!notebook) throw new BadRequestError(`Notebook '${notebookId}' not found or access denied`);
+    const memorybook = await this.memorybookRepo.findById(memorybookId, userId);
+    if (!memorybook) throw new BadRequestError(`Memorybook '${memorybookId}' not found or access denied`);
 
     if (!env.OPENAI_API_KEY || env.OPENAI_API_KEY === 'sk-placeholder') {
       throw new BadRequestError(
@@ -136,13 +136,13 @@ export class AgentService {
       try {
         await retryWithBackoff(() =>
           this.chatRepo.createMessage({
-            notebookId, userId, role: 'user',
+            memorybookId, userId, role: 'user',
             content: userQuery.trim(),
             parts: lastUserMsg?.parts || [{ type: 'text', text: userQuery.trim() }],
           })
         );
       } catch (err) {
-        logger.error({ err, notebookId }, 'Failed to persist user chat message after retries');
+        logger.error({ err, memorybookId }, 'Failed to persist user chat message after retries');
       }
     }
 
@@ -156,7 +156,7 @@ export class AgentService {
     const modelHistory = this.convertToModelMessages(messages);
     const [enhanced, independentMemories] = await Promise.all([
       queryEnhancer.enhanceQuery(userQuery, modelHistory),
-      this.memoryCoordinator.retrieveQueryIndependentMemories(notebookId, userId, userQuery),
+      this.memoryCoordinator.retrieveQueryIndependentMemories(memorybookId, userId, userQuery),
     ]);
     const queryForSearch = enhanced.correctedQuery || userQuery;
 
@@ -172,11 +172,11 @@ export class AgentService {
     // wait for query enhancement to finish (see retrieveQueryDependentMemories's
     // doc comment for why this split is safe/correct).
     const dependentMemories = await this.memoryCoordinator.retrieveQueryDependentMemories(
-      notebookId,
+      memorybookId,
       queryForSearch,
       enhanced.expandedKeywords || []
     );
-    const memoryBundle = this.memoryCoordinator.buildBundle(notebookId, userId, queryForSearch, independentMemories, dependentMemories);
+    const memoryBundle = this.memoryCoordinator.buildBundle(memorybookId, userId, queryForSearch, independentMemories, dependentMemories);
 
     // Record trace data
     tracer.recordBM25(memoryBundle.knowledgeChunks.map((c) => ({
@@ -206,7 +206,7 @@ export class AgentService {
 
     logger.info(
       {
-        notebookId, userId, userQuery,
+        memorybookId, userId, userQuery,
         correctedQuery: enhanced.correctedQuery,
         expandedKeywords: enhanced.expandedKeywords,
         retrievedChunkCount: memoryBundle.knowledgeChunks.length,
@@ -217,8 +217,8 @@ export class AgentService {
     // -------------------------------------------------------------------------
     // System prompt with clearly separated context sections
     // -------------------------------------------------------------------------
-    const systemPrompt = `You are Memora AI, an intelligent, grounded Notebook LLM assistant.
-Your goal is to answer the user's questions accurately using facts from their notebook source documents and memory.
+    const systemPrompt = `You are Memorybook, an intelligent, grounded research assistant.
+Your goal is to answer the user's questions accurately using facts from their memorybook source documents and memory.
 
 ${formattedContext.userProfileContext ? `\n${formattedContext.userProfileContext}\n` : ''}
 ${formattedContext.proceduralContext ? `\n${formattedContext.proceduralContext}\n` : ''}
@@ -233,24 +233,24 @@ INSTRUCTIONS:
 4. When citing sources, reference the document section and chunk number, e.g. [Source: Authentication > JWT, Chunk #3].
 5. If you cite a graph fact, mention the confidence level if below 0.90.
 6. If information is truly unavailable, say so explicitly.
-7. Only call 'searchWeb' / 'browseWebPage' when the user explicitly asks about external/live information not in their notebook.
-8. To save a note, call 'createNotebookNote'.`;
+7. Only call 'searchWeb' / 'browseWebPage' when the user explicitly asks about external/live information not in their memorybook.
+8. To save a note, call 'createMemorybookNote'.`;
 
     // -------------------------------------------------------------------------
     // Tools
     // -------------------------------------------------------------------------
     const searchKnowledgeBase = (tool as any)({
-      description: 'Search notebook document chunks using hybrid retrieval — BM25 lexical search fused with pgvector semantic search via Reciprocal Rank Fusion. The system prompt already contains an initial search for the user\'s query; call this only to refine/broaden that search or when the conversation has moved to a new topic.',
+      description: 'Search memorybook document chunks using hybrid retrieval — BM25 lexical search fused with pgvector semantic search via Reciprocal Rank Fusion. The system prompt already contains an initial search for the user\'s query; call this only to refine/broaden that search or when the conversation has moved to a new topic.',
       parameters: z.object({
         query: z.string().optional().describe('Search query keywords or question.'),
         topK: z.number().optional().default(5).describe('Number of top relevant chunks to retrieve'),
       }),
       execute: async ({ query, topK }: { query?: string; topK?: number }) => {
         const cleanQuery = query?.trim() || queryForSearch;
-        logger.info({ notebookId, cleanQuery, topK }, 'Agent: searchKnowledgeBase tool call');
+        logger.info({ memorybookId, cleanQuery, topK }, 'Agent: searchKnowledgeBase tool call');
         const queryTerms = Array.from(new Set([cleanQuery, ...(enhanced.expandedKeywords || [])].filter(Boolean)));
         const queryEmbedding = await embeddingService.embedQuerySafe(cleanQuery);
-        const chunks = await this.notebookRepo.searchHybrid(notebookId, queryTerms, queryEmbedding, topK || 5);
+        const chunks = await this.memorybookRepo.searchHybrid(memorybookId, queryTerms, queryEmbedding, topK || 5);
         return {
           query: cleanQuery,
           correctedQuery: enhanced.correctedQuery,
@@ -292,7 +292,7 @@ INSTRUCTIONS:
         logger.info({ targets, relationshipTypes, maxHops }, 'Agent: queryKnowledgeGraph tool call');
         const graphResult = await this.graphProvider.getNeighborsByQuery(
           targets,
-          notebookId,
+          memorybookId,
           (relationshipTypes || []).map((r) => r.toUpperCase()),
           maxHops || 2
         );
@@ -316,7 +316,7 @@ INSTRUCTIONS:
     });
 
     const searchWeb = (tool as any)({
-      description: 'Search the live internet for external facts, recent events, or documentation not in the notebook.',
+      description: 'Search the live internet for external facts, recent events, or documentation not in the memorybook.',
       parameters: z.object({
         query: z.string().describe('Search query for the internet'),
         limit: z.number().optional().default(5),
@@ -338,23 +338,23 @@ INSTRUCTIONS:
       },
     });
 
-    const createNotebookNote = (tool as any)({
-      description: 'Save a study note, summary, or insight into the notebook.',
+    const createMemorybookNote = (tool as any)({
+      description: 'Save a study note, summary, or insight into the memorybook.',
       parameters: z.object({
         title: z.string().describe('Note title'),
         content: z.string().describe('Note markdown content'),
         type: z.enum(['user_note', 'ai_summary', 'study_guide']).optional().default('ai_summary'),
       }),
       execute: async ({ title, content, type }: { title: string; content: string; type: string }) => {
-        logger.info({ notebookId, title }, 'Agent: createNotebookNote tool call');
-        const [newNote] = await db.insert(notes).values({ notebookId, title, content, type: (type as any) || 'ai_summary' }).returning();
+        logger.info({ memorybookId, title }, 'Agent: createMemorybookNote tool call');
+        const [newNote] = await db.insert(notes).values({ memorybookId, title, content, type: (type as any) || 'ai_summary' }).returning();
         return { success: true, noteId: newNote.id, title: newNote.title };
       },
     });
 
     const modelMessages = this.convertToModelMessages(messages);
 
-    const activeTools: Record<string, any> = { searchKnowledgeBase, queryKnowledgeGraph, createNotebookNote };
+    const activeTools: Record<string, any> = { searchKnowledgeBase, queryKnowledgeGraph, createMemorybookNote };
     if (isWebSearchEnabled) {
       activeTools.searchWeb = searchWeb;
       activeTools.browseWebPage = browseWebPage;
@@ -367,7 +367,7 @@ INSTRUCTIONS:
       stopWhen: isStepCount(5),
       tools: activeTools,
       onError: (event: any) => {
-        logger.error({ error: event?.error, notebookId, userId }, 'Chat stream errored');
+        logger.error({ error: event?.error, memorybookId, userId }, 'Chat stream errored');
         AgentService.releaseStreamSlot(userId);
       },
       onFinish: async (event: any) => {
@@ -393,9 +393,9 @@ INSTRUCTIONS:
 
           if (assistantText || parts.length > 0) {
             const savedMessage = await retryWithBackoff(() =>
-              this.chatRepo.createMessage({ notebookId, userId, role: 'assistant', content: assistantText, parts })
+              this.chatRepo.createMessage({ memorybookId, userId, role: 'assistant', content: assistantText, parts })
             );
-            logger.info({ notebookId, userId }, 'Persisted assistant response');
+            logger.info({ memorybookId, userId }, 'Persisted assistant response');
 
             // Durable memory extraction (NOT document graph — that's handled
             // by graph-extract-chunk on document ingestion, never on chat
@@ -411,18 +411,18 @@ INSTRUCTIONS:
               await inngest.send(
                 chatMessageCompleted.create({
                   userId,
-                  notebookId,
+                  memorybookId,
                   chatMessageId: savedMessage.id,
                   userMessage: userQuery,
                   assistantReply: assistantText,
                 })
               );
             } catch (sendErr) {
-              logger.error({ sendErr, notebookId, userId }, 'Failed to enqueue memory extraction event');
+              logger.error({ sendErr, memorybookId, userId }, 'Failed to enqueue memory extraction event');
             }
           }
         } catch (saveErr) {
-          logger.error({ saveErr, notebookId }, 'Failed to persist assistant response after retries');
+          logger.error({ saveErr, memorybookId }, 'Failed to persist assistant response after retries');
         } finally {
           AgentService.releaseStreamSlot(userId);
         }

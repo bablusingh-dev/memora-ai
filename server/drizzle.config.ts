@@ -5,8 +5,8 @@ export default defineConfig({
   out: './src/db/migrations',
   dialect: 'postgresql',
   dbCredentials: {
-    url: process.env.DATABASE_URL || 'postgres://postgres:postgrespassword@localhost:5432/memora_db',
+    url: process.env.DATABASE_URL || 'postgres://postgres:postgrespassword@localhost:5432/memorybook_db',
   },
   extensionsFilters: ['postgis'],
-  tablesFilter: ['users', 'notebooks', 'source_documents', 'document_chunks', 'notes', 'chat_messages'],
+  tablesFilter: ['users', 'memorybooks', 'source_documents', 'document_chunks', 'notes', 'chat_messages'],
 });

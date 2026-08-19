@@ -1,7 +1,7 @@
 {
-  "name": "memora-ai-client",
+  "name": "memorybook-client",
   "version": "1.0.0",
-  "description": "Production-grade Next.js frontend for memora-ai, a grounded AI research workspace",
+  "description": "Production-grade Next.js frontend for Memorybook, a grounded AI research workspace",
   "private": true,
   "scripts": {
     "dev": "next dev",

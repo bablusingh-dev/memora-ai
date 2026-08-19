@@ -30,7 +30,7 @@ export const requireAuthMiddleware = (req: AuthenticatedRequest, res: Response, 
       },
       'requireAuthMiddleware rejected request - missing userId from Clerk'
     );
-    throw new UnauthorizedError('Authentication required. Please sign in to access your notebooks.');
+    throw new UnauthorizedError('Authentication required. Please sign in to access your memorybooks.');
   }
 
   req.userId = auth.userId;

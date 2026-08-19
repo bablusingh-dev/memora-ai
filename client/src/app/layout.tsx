@@ -17,7 +17,7 @@ const mono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'Memora AI | Your Grounded Research Workspace',
+  title: 'Memorybook | Your Grounded Research Workspace',
   description: 'Upload your sources and get cited answers, generated study notes, and two-speaker audio overviews — all synthesized from your own material.',
 };
 

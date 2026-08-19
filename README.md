@@ -1,13 +1,13 @@
-# memora-ai 🧠⚡
+# Memorybook 🧠⚡
 
-> **Notebook LLM Alternative** built with an enterprise-grade full-stack architecture featuring Hybrid RAG (ParadeDB BM25 + pgvector, RRF-fused), a self-hosted Inngest durable pipeline for ingestion/knowledge-graph extraction/memory extraction, Drizzle ORM, Node.js + Express + TypeScript, and Next.js (App Router, Tailwind CSS, shadcn/ui).
+> A **NotebookLM alternative** built with an enterprise-grade full-stack architecture featuring Hybrid RAG (ParadeDB BM25 + pgvector, RRF-fused), a self-hosted Inngest durable pipeline for ingestion/knowledge-graph extraction/memory extraction, Drizzle ORM, Node.js + Express + TypeScript, and Next.js (App Router, Tailwind CSS, shadcn/ui).
 
 ---
 
 ## 🌟 Architecture Overview
 
 ```
-memora-ai/
+memorybook/
 ├── AGENTS.md                  # Guidelines for AI agents (Drizzle + ParadeDB rules)
 ├── docker-compose.yml         # Local ParadeDB (Postgres + pg_search BM25 + pgvector), Neo4j, self-hosted Inngest
 ├── server/                    # Standalone Express + TypeScript Backend

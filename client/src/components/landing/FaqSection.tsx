@@ -7,24 +7,24 @@ import { Reveal } from '@/components/landing/shared/Reveal';
 export function FaqSection() {
   const faqs = [
     {
-      question: 'What is Memora AI and how does it work?',
+      question: 'What is Memorybook and how does it work?',
       answer:
-        'Memora AI is a research workspace: create a workspace, upload your sources (PDFs, web pages, YouTube links, text files), and interact with them through context-grounded AI chat, generated study notes, and podcast-style audio overviews — all synthesized strictly from your own material.',
+        'Memorybook is a research workspace: create a workspace, upload your sources (PDFs, web pages, YouTube links, text files), and interact with them through context-grounded AI chat, generated study notes, and podcast-style audio overviews — all synthesized strictly from your own material.',
     },
     {
       question: 'Why full-text BM25 search instead of vector embeddings?',
       answer:
-        'Memora uses ParadeDB pg_search to run full-text BM25 algorithmic search directly inside PostgreSQL. Vector embeddings can suffer from semantic drift and hallucination on precise technical terms, whereas BM25 ensures exact keyword matching and high-scoring chunk retrieval.',
+        'Memorybook uses ParadeDB pg_search to run full-text BM25 algorithmic search directly inside PostgreSQL. Vector embeddings can suffer from semantic drift and hallucination on precise technical terms, whereas BM25 ensures exact keyword matching and high-scoring chunk retrieval.',
     },
     {
       question: 'How is user data protected and isolated?',
       answer:
-        'Memora AI implements multi-tenant Clerk Express authentication on the backend and frontend. Every database query, source document, and generated note is strictly scoped by your authenticated User ID.',
+        'Memorybook implements multi-tenant Clerk Express authentication on the backend and frontend. Every database query, source document, and generated note is strictly scoped by your authenticated User ID.',
     },
     {
       question: 'What file formats and source types are supported?',
       answer:
-        'Memora AI supports local PDF uploads, Markdown and TXT files, web page URLs (crawled and chunked via Firecrawl), and YouTube video URLs (with automated transcript extraction).',
+        'Memorybook supports local PDF uploads, Markdown and TXT files, web page URLs (crawled and chunked via Firecrawl), and YouTube video URLs (with automated transcript extraction).',
     },
     {
       question: 'How does the Audio Overview feature function?',
@@ -51,7 +51,7 @@ export function FaqSection() {
             Frequently Asked Questions
           </h2>
           <p className="text-base text-muted-foreground leading-relaxed font-normal">
-            Everything you need to know about how Memora AI works, and how your data stays secure.
+            Everything you need to know about how Memorybook works, and how your data stays secure.
           </p>
         </div>
 

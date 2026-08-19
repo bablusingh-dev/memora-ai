@@ -11,11 +11,11 @@ import {
 } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useNotebookStore } from '@/store/useNotebookStore';
+import { useMemorybookStore } from '@/store/useMemorybookStore';
 import { Loader2, Sparkles, FolderPlus } from 'lucide-react';
 
-export function CreateNotebookModal() {
-  const { isCreateModalOpen, setCreateModalOpen, createNotebook, isLoading } = useNotebookStore();
+export function CreateMemorybookModal() {
+  const { isCreateModalOpen, setCreateModalOpen, createMemorybook, isLoading } = useMemorybookStore();
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
@@ -29,7 +29,7 @@ export function CreateNotebookModal() {
     setErrorMsg('');
 
     try {
-      await createNotebook(title.trim(), description.trim() || undefined);
+      await createMemorybook(title.trim(), description.trim() || undefined);
       setTitle('');
       setDescription('');
     } catch (err: any) {

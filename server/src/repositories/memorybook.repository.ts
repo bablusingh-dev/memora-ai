@@ -1,11 +1,11 @@
 import { eq, and, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { notebooks, sourceDocuments, documentChunks } from '../db/schema.js';
+import { memorybooks, sourceDocuments, documentChunks } from '../db/schema.js';
 import { logger } from '../utils/logger.js';
 import { fuseRankedLists, RankedItem } from '../utils/rrf.js';
 
-export type Notebook = typeof notebooks.$inferSelect;
-export type NewNotebook = typeof notebooks.$inferInsert;
+export type Memorybook = typeof memorybooks.$inferSelect;
+export type NewMemorybook = typeof memorybooks.$inferInsert;
 export type SourceDocument = typeof sourceDocuments.$inferSelect;
 export type DocumentChunk = typeof documentChunks.$inferSelect;
 
@@ -39,54 +39,54 @@ function sanitizeBM25Query(query: string): string {
     : cleaned;
 }
 
-export class NotebookRepository {
-  async findById(id: string, userId: string): Promise<Notebook | null> {
+export class MemorybookRepository {
+  async findById(id: string, userId: string): Promise<Memorybook | null> {
     const result = await db
       .select()
-      .from(notebooks)
-      .where(and(eq(notebooks.id, id), eq(notebooks.userId, userId)))
+      .from(memorybooks)
+      .where(and(eq(memorybooks.id, id), eq(memorybooks.userId, userId)))
       .limit(1);
     return result[0] || null;
   }
 
-  async findAllByUserId(userId: string): Promise<Notebook[]> {
+  async findAllByUserId(userId: string): Promise<Memorybook[]> {
     return await db
       .select()
-      .from(notebooks)
-      .where(eq(notebooks.userId, userId))
-      .orderBy(notebooks.createdAt);
+      .from(memorybooks)
+      .where(eq(memorybooks.userId, userId))
+      .orderBy(memorybooks.createdAt);
   }
 
-  async create(data: NewNotebook): Promise<Notebook> {
-    const result = await db.insert(notebooks).values(data).returning();
+  async create(data: NewMemorybook): Promise<Memorybook> {
+    const result = await db.insert(memorybooks).values(data).returning();
     return result[0];
   }
 
-  async update(id: string, userId: string, data: Partial<NewNotebook>): Promise<Notebook | null> {
+  async update(id: string, userId: string, data: Partial<NewMemorybook>): Promise<Memorybook | null> {
     const result = await db
-      .update(notebooks)
+      .update(memorybooks)
       .set({
         ...data,
         updatedAt: new Date(),
       })
-      .where(and(eq(notebooks.id, id), eq(notebooks.userId, userId)))
+      .where(and(eq(memorybooks.id, id), eq(memorybooks.userId, userId)))
       .returning();
     return result[0] || null;
   }
 
   async delete(id: string, userId: string): Promise<boolean> {
     const result = await db
-      .delete(notebooks)
-      .where(and(eq(notebooks.id, id), eq(notebooks.userId, userId)))
+      .delete(memorybooks)
+      .where(and(eq(memorybooks.id, id), eq(memorybooks.userId, userId)))
       .returning();
     return result.length > 0;
   }
 
-  async getSourcesByNotebookId(notebookId: string): Promise<SourceDocument[]> {
+  async getSourcesByMemorybookId(memorybookId: string): Promise<SourceDocument[]> {
     return await db
       .select()
       .from(sourceDocuments)
-      .where(eq(sourceDocuments.notebookId, notebookId));
+      .where(eq(sourceDocuments.memorybookId, memorybookId));
   }
 
   /**
@@ -94,18 +94,18 @@ export class NotebookRepository {
    * Searches retrieval_content (context-enriched) when present, falling back to content.
    * Returns heading and section_path for structured citations.
    */
-  async searchBM25(notebookId: string, query?: string, limit = 5): Promise<any[]> {
+  async searchBM25(memorybookId: string, query?: string, limit = 5): Promise<any[]> {
     const cleanQuery = query?.trim();
 
     if (!cleanQuery) {
       const result = await db.execute(sql`
         SELECT
-          id, source_id, notebook_id, content,
+          id, source_id, memorybook_id, content,
           COALESCE(retrieval_content, content) AS retrieval_content,
           heading, section_path, chunk_index,
           1.0 AS bm25_score
         FROM document_chunks
-        WHERE notebook_id = ${notebookId}
+        WHERE memorybook_id = ${memorybookId}
         ORDER BY chunk_index ASC
         LIMIT ${limit}
       `);
@@ -123,19 +123,19 @@ export class NotebookRepository {
     const bm25Query = sanitizeBM25Query(cleanQuery);
 
     if (!bm25Query) {
-      return await this.searchILike(notebookId, cleanQuery, limit);
+      return await this.searchILike(memorybookId, cleanQuery, limit);
     }
 
     try {
       // Search retrieval_content first (context-enriched); fall back to content for old chunks
       const result = await db.execute(sql`
         SELECT
-          id, source_id, notebook_id, content,
+          id, source_id, memorybook_id, content,
           COALESCE(retrieval_content, content) AS retrieval_content,
           heading, section_path, chunk_index,
           paradedb.score(id) AS bm25_score
         FROM document_chunks
-        WHERE notebook_id = ${notebookId}
+        WHERE memorybook_id = ${memorybookId}
           AND (
             (retrieval_content IS NOT NULL AND retrieval_content @@@ ${bm25Query})
             OR
@@ -147,10 +147,10 @@ export class NotebookRepository {
       return result.rows;
     } catch (error) {
       logger.error(
-        { error, notebookId, query: cleanQuery },
+        { error, memorybookId, query: cleanQuery },
         'ParadeDB BM25 search failed — falling back to ILIKE substring search'
       );
-      return await this.searchILike(notebookId, cleanQuery, limit);
+      return await this.searchILike(memorybookId, cleanQuery, limit);
     }
   }
 
@@ -158,15 +158,15 @@ export class NotebookRepository {
    * Plain substring fallback used when BM25 can't run (empty query after
    * sanitization) or fails (ParadeDB parse error).
    */
-  private async searchILike(notebookId: string, query: string, limit: number): Promise<any[]> {
+  private async searchILike(memorybookId: string, query: string, limit: number): Promise<any[]> {
     const result = await db.execute(sql`
       SELECT
-        id, source_id, notebook_id, content,
+        id, source_id, memorybook_id, content,
         COALESCE(retrieval_content, content) AS retrieval_content,
         heading, section_path, chunk_index,
         1.0 AS bm25_score
       FROM document_chunks
-      WHERE notebook_id = ${notebookId}
+      WHERE memorybook_id = ${memorybookId}
         AND (
           retrieval_content ILIKE ${'%' + query + '%'}
           OR content ILIKE ${'%' + query + '%'}
@@ -179,18 +179,18 @@ export class NotebookRepository {
   /**
    * Search multiple expanded queries in parallel and fuse rankings with Reciprocal Rank Fusion (RRF)
    */
-  async searchMultiQueryBM25(notebookId: string, queries: string[], limit = 5): Promise<any[]> {
+  async searchMultiQueryBM25(memorybookId: string, queries: string[], limit = 5): Promise<any[]> {
     const validQueries = queries.map((q) => q.trim()).filter((q) => q.length > 0);
     if (validQueries.length === 0) {
-      return await this.searchBM25(notebookId, undefined, limit);
+      return await this.searchBM25(memorybookId, undefined, limit);
     }
 
     if (validQueries.length === 1) {
-      return await this.searchBM25(notebookId, validQueries[0], limit);
+      return await this.searchBM25(memorybookId, validQueries[0], limit);
     }
 
     // Execute BM25 search for each expanded query term
-    const searchPromises = validQueries.map((q) => this.searchBM25(notebookId, q, limit * 2));
+    const searchPromises = validQueries.map((q) => this.searchBM25(memorybookId, q, limit * 2));
     const searchResults = await Promise.all(searchPromises);
 
     const rankedLists: RankedItem<any>[][] = searchResults.map((rows) =>
@@ -210,24 +210,24 @@ export class NotebookRepository {
    * no embedded chunks yet, etc. — so callers can treat "no vector results"
    * as a normal degrade-to-BM25-only case rather than an error to handle.
    */
-  async searchVector(notebookId: string, queryEmbedding: number[], limit = 5): Promise<any[]> {
+  async searchVector(memorybookId: string, queryEmbedding: number[], limit = 5): Promise<any[]> {
     const vectorLiteral = `[${queryEmbedding.join(',')}]`;
     try {
       const result = await db.execute(sql`
         SELECT
-          id, source_id, notebook_id, content,
+          id, source_id, memorybook_id, content,
           COALESCE(retrieval_content, content) AS retrieval_content,
           heading, section_path, chunk_index,
           1 - (embedding <=> ${vectorLiteral}::vector) AS vector_score
         FROM document_chunks
-        WHERE notebook_id = ${notebookId} AND embedding IS NOT NULL
+        WHERE memorybook_id = ${memorybookId} AND embedding IS NOT NULL
         ORDER BY embedding <=> ${vectorLiteral}::vector ASC
         LIMIT ${limit}
       `);
       return result.rows;
     } catch (error) {
       logger.error(
-        { error, notebookId },
+        { error, memorybookId },
         'pgvector search failed — hybrid retrieval will degrade to BM25-only for this query'
       );
       return [];
@@ -243,14 +243,14 @@ export class NotebookRepository {
    * with cosine similarities that live on entirely different scales.
    *
    * `queryEmbedding` is nullable: when embedding generation fails at query
-   * time (see EmbeddingService#embedQuerySafe) or no chunks in this notebook
+   * time (see EmbeddingService#embedQuerySafe) or no chunks in this memorybook
    * have been embedded yet, this transparently falls back to BM25-only
    * rather than failing the chat turn.
    */
-  async searchHybrid(notebookId: string, queries: string[], queryEmbedding: number[] | null, limit = 5): Promise<any[]> {
+  async searchHybrid(memorybookId: string, queries: string[], queryEmbedding: number[] | null, limit = 5): Promise<any[]> {
     const [bm25Rows, vectorRows] = await Promise.all([
-      this.searchMultiQueryBM25(notebookId, queries, limit * 2),
-      queryEmbedding ? this.searchVector(notebookId, queryEmbedding, limit * 2) : Promise.resolve([]),
+      this.searchMultiQueryBM25(memorybookId, queries, limit * 2),
+      queryEmbedding ? this.searchVector(memorybookId, queryEmbedding, limit * 2) : Promise.resolve([]),
     ]);
 
     if (vectorRows.length === 0) {

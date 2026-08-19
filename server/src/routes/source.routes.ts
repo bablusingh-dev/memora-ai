@@ -11,7 +11,7 @@ import {
 import { requireAuthMiddleware } from '../middlewares/auth.middleware.js';
 import { validateRequest } from '../middlewares/validate.middleware.js';
 import {
-  notebookIdParamSchema,
+  memorybookIdParamSchema,
   websiteSourceSchema,
   youtubeSourceSchema,
   textSourceSchema,
@@ -28,11 +28,11 @@ const router = Router({ mergeParams: true });
 
 router.use(requireAuthMiddleware);
 
-router.get('/', validateRequest({ params: notebookIdParamSchema }), getSources);
-router.post('/upload', validateRequest({ params: notebookIdParamSchema }), upload.single('file'), uploadSourceFile);
-router.post('/website', validateRequest({ params: notebookIdParamSchema, body: websiteSourceSchema }), ingestWebsite);
-router.post('/youtube', validateRequest({ params: notebookIdParamSchema, body: youtubeSourceSchema }), ingestYoutube);
-router.post('/text', validateRequest({ params: notebookIdParamSchema, body: textSourceSchema }), ingestTextNote);
+router.get('/', validateRequest({ params: memorybookIdParamSchema }), getSources);
+router.post('/upload', validateRequest({ params: memorybookIdParamSchema }), upload.single('file'), uploadSourceFile);
+router.post('/website', validateRequest({ params: memorybookIdParamSchema, body: websiteSourceSchema }), ingestWebsite);
+router.post('/youtube', validateRequest({ params: memorybookIdParamSchema, body: youtubeSourceSchema }), ingestYoutube);
+router.post('/text', validateRequest({ params: memorybookIdParamSchema, body: textSourceSchema }), ingestTextNote);
 router.delete('/:id', validateRequest({ params: uuidParamSchema }), deleteSource);
 
 export default router;

@@ -33,7 +33,7 @@ export const users = pgTable('users', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
-export const notebooks = pgTable('notebooks', {
+export const memorybooks = pgTable('memorybooks', {
   id: uuid('id').defaultRandom().primaryKey(),
   userId: text('user_id')
     .references(() => users.id, { onDelete: 'cascade' })
@@ -46,15 +46,15 @@ export const notebooks = pgTable('notebooks', {
 
 export const sourceDocuments = pgTable('source_documents', {
   id: uuid('id').defaultRandom().primaryKey(),
-  notebookId: uuid('notebook_id')
-    .references(() => notebooks.id, { onDelete: 'cascade' })
+  memorybookId: uuid('memorybook_id')
+    .references(() => memorybooks.id, { onDelete: 'cascade' })
     .notNull(),
   title: text('title').notNull(),
   fileType: text('file_type').notNull(), // 'pdf' | 'web' | 'youtube' | 'text'
   fileUrl: text('file_url'),
   status: text('status').default('processing').notNull(), // 'processing' | 'ready' | 'error' | 'duplicate'
   // sha256 of the ingested content (file bytes / scraped markdown / transcript
-  // text / raw text). Backed by a partial unique index (notebookId, contentHash)
+  // text / raw text). Backed by a partial unique index (memorybookId, contentHash)
   // — see db/index.ts — so exact re-ingestion is rejected rather than silently
   // duplicating chunks.
   contentHash: text('content_hash'),
@@ -72,8 +72,8 @@ export const documentChunks = pgTable('document_chunks', {
   sourceId: uuid('source_id')
     .references(() => sourceDocuments.id, { onDelete: 'cascade' })
     .notNull(),
-  notebookId: uuid('notebook_id')
-    .references(() => notebooks.id, { onDelete: 'cascade' })
+  memorybookId: uuid('memorybook_id')
+    .references(() => memorybooks.id, { onDelete: 'cascade' })
     .notNull(),
   content: text('content').notNull(),
   // Context-enriched version of content used for BM25 indexing and retrieval.
@@ -109,8 +109,8 @@ export const documentChunks = pgTable('document_chunks', {
 
 export const notes = pgTable('notes', {
   id: uuid('id').defaultRandom().primaryKey(),
-  notebookId: uuid('notebook_id')
-    .references(() => notebooks.id, { onDelete: 'cascade' })
+  memorybookId: uuid('memorybook_id')
+    .references(() => memorybooks.id, { onDelete: 'cascade' })
     .notNull(),
   title: text('title').notNull(),
   content: text('content').notNull(),
@@ -121,8 +121,8 @@ export const notes = pgTable('notes', {
 
 export const chatMessages = pgTable('chat_messages', {
   id: uuid('id').defaultRandom().primaryKey(),
-  notebookId: uuid('notebook_id')
-    .references(() => notebooks.id, { onDelete: 'cascade' })
+  memorybookId: uuid('memorybook_id')
+    .references(() => memorybooks.id, { onDelete: 'cascade' })
     .notNull(),
   userId: text('user_id')
     .references(() => users.id, { onDelete: 'cascade' })

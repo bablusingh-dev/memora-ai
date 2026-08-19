@@ -35,7 +35,7 @@ export function Navbar() {
           </div>
           <div className="flex flex-col">
             <span className="font-bold text-base tracking-tight text-foreground flex items-center gap-2">
-              Memora AI
+              Memorybook
               <span className="text-[11px] font-semibold text-primary bg-primary/10 px-2.5 py-0.5 rounded-full">
                 AI Workspace
               </span>

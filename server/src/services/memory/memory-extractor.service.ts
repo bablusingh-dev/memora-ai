@@ -64,11 +64,11 @@ export class MemoryExtractorService {
       model: this.openai('gpt-4o-mini'),
       output: Output.object({ schema: MemoryExtractionSchema }),
       prompt: `
-You are a precise memory extraction engine for a Notebook LLM assistant. Analyze ONLY the user's message below (the assistant reply is provided for context only, not as a source of facts about the user).
+You are a precise memory extraction engine for a Memorybook assistant. Analyze ONLY the user's message below (the assistant reply is provided for context only, not as a source of facts about the user).
 
 CRITICAL RULES:
 1. Only extract what the user explicitly stated. Do not infer, assume, or invent facts.
-2. profileFacts: durable facts about the USER (not the notebook's subject matter). E.g. "I'm a backend engineer" -> keep; "Tell me about Apache Kafka" -> not a fact about the user, skip.
+2. profileFacts: durable facts about the USER (not the memorybook's subject matter). E.g. "I'm a backend engineer" -> keep; "Tell me about Apache Kafka" -> not a fact about the user, skip.
 3. proceduralRules: only extract explicit formatting/style instructions, not implicit preferences.
 4. episodicSummary: null unless the exchange covered a substantive topic worth recalling later.
 5. Return empty arrays / null rather than guessing when nothing qualifies.
@@ -92,12 +92,12 @@ CRITICAL RULES:
    * idempotent-ish in effect; the consolidation pass in extract-memories.ts
    * cleans up any resulting near-duplicates over time).
    */
-  async persistMemories(userId: string, notebookId: string, extracted: ExtractedMemories): Promise<void> {
+  async persistMemories(userId: string, memorybookId: string, extracted: ExtractedMemories): Promise<void> {
     if (extracted.profileFacts.length > 0) {
       await this.memoryProvider.add(extracted.profileFacts, {
         userId,
         category: 'user_profile',
-        metadata: { notebookId, source: 'llm_extraction' },
+        metadata: { memorybookId, source: 'llm_extraction' },
       });
     }
 
@@ -105,7 +105,7 @@ CRITICAL RULES:
       await this.memoryProvider.add(extracted.proceduralRules, {
         userId,
         category: 'procedural',
-        metadata: { notebookId, source: 'llm_extraction' },
+        metadata: { memorybookId, source: 'llm_extraction' },
       });
     }
 
@@ -113,14 +113,14 @@ CRITICAL RULES:
       await this.memoryProvider.add(extracted.episodicSummary, {
         userId,
         category: 'episodic',
-        metadata: { notebookId, timestamp: new Date().toISOString() },
+        metadata: { memorybookId, timestamp: new Date().toISOString() },
       });
     }
 
     logger.info(
       {
         userId,
-        notebookId,
+        memorybookId,
         profileFactsCount: extracted.profileFacts.length,
         proceduralRulesCount: extracted.proceduralRules.length,
         hasEpisodicSummary: Boolean(extracted.episodicSummary),

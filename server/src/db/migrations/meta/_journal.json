@@ -5,43 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1786641123417,
-      "tag": "0000_secret_meltdown",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1786740811331,
-      "tag": "0001_wakeful_northstar",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1786818123512,
-      "tag": "0002_light_wolfpack",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1787070301798,
-      "tag": "0003_phase1_source_ingestion_columns",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1787071058747,
-      "tag": "0004_phase2_graph_index_status",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1787073223126,
-      "tag": "0005_phase3_hybrid_vector_search",
+      "when": 1787108175130,
+      "tag": "0000_init_memorybook_schema",
       "breakpoints": true
     }
   ]

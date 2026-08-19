@@ -11,7 +11,7 @@ import {
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useNotebookStore } from '@/store/useNotebookStore';
+import { useMemorybookStore } from '@/store/useMemorybookStore';
 import { FileUp, Globe, Youtube, FileText, Loader2, Sparkles, UploadCloud } from 'lucide-react';
 
 export function AddSourceModal() {
@@ -23,7 +23,7 @@ export function AddSourceModal() {
     ingestYoutubeSource,
     createTextSource,
     isLoading,
-  } = useNotebookStore();
+  } = useMemorybookStore();
 
   const [activeTab, setActiveTab] = useState('file');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);

@@ -31,12 +31,12 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { useNotebookStore } from '@/store/useNotebookStore';
+import { useMemorybookStore } from '@/store/useMemorybookStore';
 import { SourceDocument } from '@/types/api';
 
 export function SourcesPanel() {
-  const { activeNotebook, setAddSourceModalOpen, deleteSource } = useNotebookStore();
-  const sources = activeNotebook?.sources || [];
+  const { activeMemorybook, setAddSourceModalOpen, deleteSource } = useMemorybookStore();
+  const sources = activeMemorybook?.sources || [];
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSourceIds, setSelectedSourceIds] = useState<Set<string>>(new Set());
@@ -144,20 +144,20 @@ export function SourcesPanel() {
         </Badge>
       </div>
 
-      {/* Active Notebook Summary Card */}
-      {activeNotebook ? (
+      {/* Active Memorybook Summary Card */}
+      {activeMemorybook ? (
         <div className="p-3 rounded-2xl bg-background/90 dark:bg-card border-0 shadow-2xs space-y-1">
           <div className="flex items-center justify-between">
             <p className="text-xs font-bold text-foreground truncate">
-              {activeNotebook.title}
+              {activeMemorybook.title}
             </p>
             <span className="text-[10px] text-muted-foreground font-mono">
               {sources.length} doc{sources.length === 1 ? '' : 's'}
             </span>
           </div>
-          {activeNotebook.description && (
+          {activeMemorybook.description && (
             <p className="text-[11px] text-muted-foreground truncate leading-tight">
-              {activeNotebook.description}
+              {activeMemorybook.description}
             </p>
           )}
         </div>
@@ -169,7 +169,7 @@ export function SourcesPanel() {
 
       {/* Add Source Action Button */}
       <Button
-        disabled={!activeNotebook}
+        disabled={!activeMemorybook}
         onClick={() => setAddSourceModalOpen(true)}
         className="w-full justify-start space-x-2 bg-primary text-primary-foreground hover:bg-primary/90 rounded-2xl shadow-2xs h-9 text-xs font-semibold border-0"
       >

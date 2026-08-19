@@ -1,5 +1,5 @@
 import { SourceRepository, SourceDocument, UNIQUE_VIOLATION } from '../repositories/source.repository.js';
-import { NotebookRepository } from '../repositories/notebook.repository.js';
+import { MemorybookRepository } from '../repositories/memorybook.repository.js';
 import { uploadToCloudinary } from '../utils/cloudinary.js';
 import { sha256Hex } from '../utils/content-hash.js';
 import { NotFoundError, ConflictError } from '../utils/api-error.js';
@@ -29,44 +29,44 @@ import {
  */
 export class SourceService {
   private sourceRepo: SourceRepository;
-  private notebookRepo: NotebookRepository;
+  private memorybookRepo: MemorybookRepository;
 
   constructor() {
     this.sourceRepo = new SourceRepository();
-    this.notebookRepo = new NotebookRepository();
+    this.memorybookRepo = new MemorybookRepository();
   }
 
-  async getSources(notebookId: string, userId: string) {
-    const notebook = await this.notebookRepo.findById(notebookId, userId);
-    if (!notebook) {
-      throw new NotFoundError(`Notebook '${notebookId}' not found`);
+  async getSources(memorybookId: string, userId: string) {
+    const memorybook = await this.memorybookRepo.findById(memorybookId, userId);
+    if (!memorybook) {
+      throw new NotFoundError(`Memorybook '${memorybookId}' not found`);
     }
-    return await this.sourceRepo.findByNotebookId(notebookId);
+    return await this.sourceRepo.findByMemorybookId(memorybookId);
   }
 
   /**
    * Ingest PDF/Document File -> Cloudinary upload (sync) -> Inngest pipeline
    * (parse/chunk/persist/graph fan-out, async).
    */
-  async ingestFile(notebookId: string, userId: string, file: Express.Multer.File): Promise<SourceDocument> {
-    const notebook = await this.notebookRepo.findById(notebookId, userId);
-    if (!notebook) {
-      throw new NotFoundError(`Notebook '${notebookId}' not found`);
+  async ingestFile(memorybookId: string, userId: string, file: Express.Multer.File): Promise<SourceDocument> {
+    const memorybook = await this.memorybookRepo.findById(memorybookId, userId);
+    if (!memorybook) {
+      throw new NotFoundError(`Memorybook '${memorybookId}' not found`);
     }
 
     // Hash the raw bytes before doing anything else — an exact re-upload is
     // rejected here with zero wasted Cloudinary upload or parsing work.
     const contentHash = sha256Hex(file.buffer);
-    const existing = await this.sourceRepo.findByContentHash(notebookId, contentHash);
+    const existing = await this.sourceRepo.findByContentHash(memorybookId, contentHash);
     if (existing) {
-      throw new ConflictError(`This file has already been added to this notebook as "${existing.title}".`);
+      throw new ConflictError(`This file has already been added to this memorybook as "${existing.title}".`);
     }
 
-    logger.info({ fileName: file.originalname, size: file.size, notebookId }, 'Uploading file to Cloudinary for ingestion');
+    logger.info({ fileName: file.originalname, size: file.size, memorybookId }, 'Uploading file to Cloudinary for ingestion');
     const fileUrl = await uploadToCloudinary(file.buffer, file.originalname);
 
     const source = await this.createSourceOrConflict({
-      notebookId,
+      memorybookId,
       title: file.originalname,
       fileType: 'pdf',
       fileUrl,
@@ -79,7 +79,7 @@ export class SourceService {
     await inngest.send(
       sourceFileUploaded.create({
         sourceId: source.id,
-        notebookId,
+        memorybookId,
         userId,
         fileUrl,
         mimeType: file.mimetype,
@@ -95,27 +95,27 @@ export class SourceService {
    * Ingest Website URL -> Inngest pipeline (Firecrawl scrape, dedup, chunk,
    * persist, graph fan-out, all async).
    */
-  async ingestWebsite(notebookId: string, userId: string, url: string): Promise<SourceDocument> {
-    const notebook = await this.notebookRepo.findById(notebookId, userId);
-    if (!notebook) {
-      throw new NotFoundError(`Notebook '${notebookId}' not found`);
+  async ingestWebsite(memorybookId: string, userId: string, url: string): Promise<SourceDocument> {
+    const memorybook = await this.memorybookRepo.findById(memorybookId, userId);
+    if (!memorybook) {
+      throw new NotFoundError(`Memorybook '${memorybookId}' not found`);
     }
 
     // Content (and its hash) isn't known until the page is fetched, so this
     // is only a cheap same-URL pre-check (catches double-clicks); the
     // authoritative content-hash dedup happens inside the Inngest function
     // once the page has actually been scraped.
-    const activeByUrl = await this.sourceRepo.findActiveByUrl(notebookId, url);
+    const activeByUrl = await this.sourceRepo.findActiveByUrl(memorybookId, url);
     if (activeByUrl) {
       throw new ConflictError(
         activeByUrl.status === 'ready'
-          ? `This URL has already been added to this notebook as "${activeByUrl.title}".`
-          : 'This URL is already being processed for this notebook.'
+          ? `This URL has already been added to this memorybook as "${activeByUrl.title}".`
+          : 'This URL is already being processed for this memorybook.'
       );
     }
 
     const source = await this.sourceRepo.createSource({
-      notebookId,
+      memorybookId,
       title: url,
       fileType: 'web',
       fileUrl: url,
@@ -124,7 +124,7 @@ export class SourceService {
       metadata: { originalUrl: url },
     });
 
-    await inngest.send(sourceWebsiteRequested.create({ sourceId: source.id, notebookId, userId, url }));
+    await inngest.send(sourceWebsiteRequested.create({ sourceId: source.id, memorybookId, userId, url }));
 
     return source;
   }
@@ -133,23 +133,23 @@ export class SourceService {
    * Ingest YouTube Video URL -> Inngest pipeline (transcript fetch, dedup,
    * chunk, persist, graph fan-out, all async).
    */
-  async ingestYoutube(notebookId: string, userId: string, url: string): Promise<SourceDocument> {
-    const notebook = await this.notebookRepo.findById(notebookId, userId);
-    if (!notebook) {
-      throw new NotFoundError(`Notebook '${notebookId}' not found`);
+  async ingestYoutube(memorybookId: string, userId: string, url: string): Promise<SourceDocument> {
+    const memorybook = await this.memorybookRepo.findById(memorybookId, userId);
+    if (!memorybook) {
+      throw new NotFoundError(`Memorybook '${memorybookId}' not found`);
     }
 
-    const activeByUrl = await this.sourceRepo.findActiveByUrl(notebookId, url);
+    const activeByUrl = await this.sourceRepo.findActiveByUrl(memorybookId, url);
     if (activeByUrl) {
       throw new ConflictError(
         activeByUrl.status === 'ready'
-          ? `This video has already been added to this notebook as "${activeByUrl.title}".`
-          : 'This video is already being processed for this notebook.'
+          ? `This video has already been added to this memorybook as "${activeByUrl.title}".`
+          : 'This video is already being processed for this memorybook.'
       );
     }
 
     const source = await this.sourceRepo.createSource({
-      notebookId,
+      memorybookId,
       title: url,
       fileType: 'youtube',
       fileUrl: url,
@@ -158,7 +158,7 @@ export class SourceService {
       metadata: { originalUrl: url },
     });
 
-    await inngest.send(sourceYoutubeRequested.create({ sourceId: source.id, notebookId, userId, url }));
+    await inngest.send(sourceYoutubeRequested.create({ sourceId: source.id, memorybookId, userId, url }));
 
     return source;
   }
@@ -168,21 +168,21 @@ export class SourceService {
    * fan-out, async). Content is already known synchronously, so — like
    * files — it's hashed and dedup-checked up front.
    */
-  async ingestText(notebookId: string, userId: string, title: string, text: string): Promise<SourceDocument> {
-    const notebook = await this.notebookRepo.findById(notebookId, userId);
-    if (!notebook) {
-      throw new NotFoundError(`Notebook '${notebookId}' not found`);
+  async ingestText(memorybookId: string, userId: string, title: string, text: string): Promise<SourceDocument> {
+    const memorybook = await this.memorybookRepo.findById(memorybookId, userId);
+    if (!memorybook) {
+      throw new NotFoundError(`Memorybook '${memorybookId}' not found`);
     }
 
     const resolvedTitle = title || 'Pasted Text Note';
     const contentHash = sha256Hex(text);
-    const existing = await this.sourceRepo.findByContentHash(notebookId, contentHash);
+    const existing = await this.sourceRepo.findByContentHash(memorybookId, contentHash);
     if (existing) {
-      throw new ConflictError(`This text has already been added to this notebook as "${existing.title}".`);
+      throw new ConflictError(`This text has already been added to this memorybook as "${existing.title}".`);
     }
 
     const source = await this.createSourceOrConflict({
-      notebookId,
+      memorybookId,
       title: resolvedTitle,
       fileType: 'text',
       status: 'processing',
@@ -192,18 +192,18 @@ export class SourceService {
     });
 
     await inngest.send(
-      sourceTextRequested.create({ sourceId: source.id, notebookId, userId, title: resolvedTitle, content: text, contentHash })
+      sourceTextRequested.create({ sourceId: source.id, memorybookId, userId, title: resolvedTitle, content: text, contentHash })
     );
 
     return source;
   }
 
-  async deleteSource(notebookId: string, sourceId: string, userId: string) {
-    const notebook = await this.notebookRepo.findById(notebookId, userId);
-    if (!notebook) {
-      throw new NotFoundError(`Notebook '${notebookId}' not found`);
+  async deleteSource(memorybookId: string, sourceId: string, userId: string) {
+    const memorybook = await this.memorybookRepo.findById(memorybookId, userId);
+    if (!memorybook) {
+      throw new NotFoundError(`Memorybook '${memorybookId}' not found`);
     }
-    const deleted = await this.sourceRepo.deleteSource(sourceId, notebookId);
+    const deleted = await this.sourceRepo.deleteSource(sourceId, memorybookId);
     if (!deleted) {
       throw new NotFoundError(`Source document '${sourceId}' not found`);
     }
@@ -212,7 +212,7 @@ export class SourceService {
 
   /**
    * Insert a source row, converting a unique-constraint violation on
-   * (notebookId, contentHash) into a friendly ConflictError. This is the
+   * (memorybookId, contentHash) into a friendly ConflictError. This is the
    * race-condition backstop for the synchronous dedup check above: two
    * identical uploads submitted at the same instant both pass the
    * SELECT-based pre-check (which found nothing, or we'd have thrown
@@ -225,7 +225,7 @@ export class SourceService {
       return await this.sourceRepo.createSource(data);
     } catch (err: any) {
       if (err?.code === UNIQUE_VIOLATION) {
-        throw new ConflictError('This content is already being added to this notebook.');
+        throw new ConflictError('This content is already being added to this memorybook.');
       }
       throw err;
     }

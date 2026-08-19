@@ -2,7 +2,7 @@
   "version": "0.0.1",
   "configurations": [
     {
-      "name": "memora-ai-client",
+      "name": "memorybook-client",
       "runtimeExecutable": "npm",
       "runtimeArgs": ["--prefix", "client", "run", "dev"],
       "port": 3000

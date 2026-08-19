@@ -1,10 +1,10 @@
 import { eq, isNull, sql } from 'drizzle-orm';
 import { db } from '../db/index.js';
-import { documentChunks, notebooks } from '../db/schema.js';
+import { documentChunks, memorybooks } from '../db/schema.js';
 
 export interface ChunkForGraphExtraction {
   id: string;
-  notebookId: string;
+  memorybookId: string;
   userId: string;
   content: string;
   retrievalContent: string | null;
@@ -14,7 +14,7 @@ export interface ChunkForGraphExtraction {
 
 export interface PendingGraphIndexChunk {
   id: string;
-  notebookId: string;
+  memorybookId: string;
   userId: string;
 }
 
@@ -26,13 +26,13 @@ export interface ChunkMissingEmbedding {
 
 /**
  * document_chunks lifecycle concerns that don't belong in SourceRepository
- * (chunk creation/persistence) or NotebookRepository (BM25/vector search) —
+ * (chunk creation/persistence) or MemorybookRepository (BM25/vector search) —
  * the knowledge-graph indexing state machine (inngest/functions/graph-extract.ts)
  * and the embedding backfill (inngest/functions/embedding-backfill.ts).
  */
 export class DocumentChunkRepository {
   /**
-   * Fetch one chunk plus its owning user (joined from notebooks) — everything
+   * Fetch one chunk plus its owning user (joined from memorybooks) — everything
    * the graph extraction step needs, in the shape the LLM extraction prompt
    * and Neo4j provider expect.
    */
@@ -40,15 +40,15 @@ export class DocumentChunkRepository {
     const result = await db
       .select({
         id: documentChunks.id,
-        notebookId: documentChunks.notebookId,
-        userId: notebooks.userId,
+        memorybookId: documentChunks.memorybookId,
+        userId: memorybooks.userId,
         content: documentChunks.content,
         retrievalContent: documentChunks.retrievalContent,
         heading: documentChunks.heading,
         sectionPath: documentChunks.sectionPath,
       })
       .from(documentChunks)
-      .innerJoin(notebooks, eq(documentChunks.notebookId, notebooks.id))
+      .innerJoin(memorybooks, eq(documentChunks.memorybookId, memorybooks.id))
       .where(eq(documentChunks.id, chunkId))
       .limit(1);
     return result[0] || null;
@@ -81,9 +81,9 @@ export class DocumentChunkRepository {
    */
   async findPendingGraphIndexChunks(limit = 200): Promise<PendingGraphIndexChunk[]> {
     return db
-      .select({ id: documentChunks.id, notebookId: documentChunks.notebookId, userId: notebooks.userId })
+      .select({ id: documentChunks.id, memorybookId: documentChunks.memorybookId, userId: memorybooks.userId })
       .from(documentChunks)
-      .innerJoin(notebooks, eq(documentChunks.notebookId, notebooks.id))
+      .innerJoin(memorybooks, eq(documentChunks.memorybookId, memorybooks.id))
       .where(eq(documentChunks.graphIndexStatus, 'pending'))
       .limit(limit);
   }

@@ -6,7 +6,7 @@ dotenv.config();
 const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   PORT: z.string().transform((val) => parseInt(val, 10)).default('5000'),
-  DATABASE_URL: z.string().default('postgres://postgres:postgrespassword@localhost:5432/memora_db'),
+  DATABASE_URL: z.string().default('postgres://postgres:postgrespassword@localhost:5432/memorybook_db'),
   CORS_ORIGIN: z.string().default('http://localhost:3000'),
   LOG_LEVEL: z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace']).default('info'),
   CLERK_PUBLISHABLE_KEY: z.string().optional().default('pk_test_placeholder'),
@@ -28,7 +28,7 @@ const envSchema = z.object({
   GRAPH_PROVIDER: z.enum(['self_hosted', 'neo4j_aura']).default('self_hosted'),
   NEO4J_URI: z.string().default('bolt://localhost:7687'),
   NEO4J_USER: z.string().default('neo4j'),
-  NEO4J_PASSWORD: z.string().default('memora_graph_password'),
+  NEO4J_PASSWORD: z.string().default('memorybook_graph_password'),
 
   // Evaluation & Reflection Loop Configuration
   EVAL_MAX_RETRIES: z.coerce.number().default(3),
@@ -36,7 +36,7 @@ const envSchema = z.object({
 
   // Inngest (self-hosted OSS) — durable async pipeline execution for
   // ingestion, knowledge-graph extraction, and memory extraction.
-  INNGEST_APP_ID: z.string().default('memora-ai'),
+  INNGEST_APP_ID: z.string().default('memorybook'),
   INNGEST_BASE_URL: z.string().default('http://localhost:8288'),
   // `isDev: true` targets Inngest's lightweight throwaway "Dev Server"
   // (`inngest-cli dev`) and auto-discovers it, bypassing signature

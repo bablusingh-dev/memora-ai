@@ -44,7 +44,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
-import { useNotebookStore } from '@/store/useNotebookStore';
+import { useMemorybookStore } from '@/store/useMemorybookStore';
 import {
   ChainOfThought,
   ChainOfThoughtHeader,
@@ -94,7 +94,7 @@ function CopyMessageButton({ text }: { text: string }) {
 
 function SaveNoteButton({ title, text }: { title: string; text: string }) {
   const [saved, setSaved] = useState(false);
-  const { createNote } = useNotebookStore();
+  const { createNote } = useMemorybookStore();
 
   const handleSave = async () => {
     if (!text || saved) return;
@@ -136,14 +136,14 @@ function SaveNoteButton({ title, text }: { title: string; text: string }) {
   );
 }
 
-function ChatStreamView({ notebookId }: { notebookId: string }) {
+function ChatStreamView({ memorybookId }: { memorybookId: string }) {
   const [selectedCitation, setSelectedCitation] = useState<any | null>(null);
   const [inputValue, setInputValue] = useState('');
   const [webSearchEnabled, setWebSearchEnabled] = useState(false);
   const [isHistoryLoading, setIsHistoryLoading] = useState(true);
   const [isClearing, setIsClearing] = useState(false);
 
-  const { activeNotebook } = useNotebookStore();
+  const { activeMemorybook } = useMemorybookStore();
 
   const webSearchRef = useRef(webSearchEnabled);
   useEffect(() => {
@@ -156,10 +156,10 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
     typeof window !== 'undefined'
       ? (process.env.NEXT_PUBLIC_BACKEND_URL ?? 'http://localhost:5000')
       : 'http://localhost:5000';
-  const apiEndpoint = `${backendBase}/api/v1/notebooks/${notebookId}/chat`;
+  const apiEndpoint = `${backendBase}/api/v1/memorybooks/${memorybookId}/chat`;
 
   const { messages, setMessages, sendMessage, status, stop } = useChat({
-    id: notebookId,
+    id: memorybookId,
     throttle: 50,
     transport: new DefaultChatTransport({
       api: apiEndpoint,
@@ -233,7 +233,7 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
     return () => {
       isCancelled = true;
     };
-  }, [notebookId, isLoaded, isSignedIn]);
+  }, [memorybookId, isLoaded, isSignedIn]);
 
   const handleClearHistory = async () => {
     if (isClearing || !messages || messages.length === 0) return;
@@ -560,9 +560,9 @@ function ChatStreamView({ notebookId }: { notebookId: string }) {
 }
 
 export function ChatStudioPanel() {
-  const { activeNotebook } = useNotebookStore();
+  const { activeMemorybook } = useMemorybookStore();
 
-  if (!activeNotebook) {
+  if (!activeMemorybook) {
     return (
       <div className="flex flex-col h-full min-h-0 items-center justify-center p-8 text-center space-y-3 bg-background">
         <Bot className="w-10 h-10 text-muted-foreground/60" />
@@ -574,5 +574,5 @@ export function ChatStudioPanel() {
     );
   }
 
-  return <ChatStreamView key={activeNotebook.id} notebookId={activeNotebook.id} />;
+  return <ChatStreamView key={activeMemorybook.id} memorybookId={activeMemorybook.id} />;
 }

@@ -29,16 +29,16 @@ type SourceFileType = 'pdf' | 'web' | 'youtube' | 'text';
 // ---------------------------------------------------------------------------
 async function chunkPersistAndFanOut(
   step: any,
-  params: { sourceId: string; notebookId: string; userId: string; title: string; rawText: string; fileType: SourceFileType }
+  params: { sourceId: string; memorybookId: string; userId: string; title: string; rawText: string; fileType: SourceFileType }
 ): Promise<void> {
-  const { sourceId, notebookId, userId, title, rawText, fileType } = params;
+  const { sourceId, memorybookId, userId, title, rawText, fileType } = params;
 
   await step.run('mark-chunking', () => sourceRepo.updateSource(sourceId, { stage: 'chunking' }));
 
   const dbChunks: NewDocumentChunk[] = await step.run('chunk-content', () =>
     ChunkingService.createChunks(rawText, title, fileType).map((c) => ({
       sourceId,
-      notebookId,
+      memorybookId,
       content: c.originalContent,
       retrievalContent: c.retrievalContent,
       chunkIndex: c.chunkIndex,
@@ -93,7 +93,7 @@ async function chunkPersistAndFanOut(
   if (chunkIds.length > 0) {
     await step.sendEvent(
       'fan-out-graph-extraction',
-      chunkIds.map((chunkId) => graphChunkCreated.create({ chunkId, notebookId, userId }))
+      chunkIds.map((chunkId) => graphChunkCreated.create({ chunkId, memorybookId, userId }))
     );
   }
 }
@@ -107,18 +107,18 @@ async function chunkPersistAndFanOut(
  */
 async function claimContentHashOrMarkDuplicate(
   step: any,
-  params: { sourceId: string; notebookId: string; rawText: string }
+  params: { sourceId: string; memorybookId: string; rawText: string }
 ): Promise<boolean> {
-  const { sourceId, notebookId, rawText } = params;
+  const { sourceId, memorybookId, rawText } = params;
 
   return step.run('check-duplicate', async () => {
     const contentHash = sha256Hex(rawText);
-    const existing = await sourceRepo.findByContentHash(notebookId, contentHash);
+    const existing = await sourceRepo.findByContentHash(memorybookId, contentHash);
     if (existing && existing.id !== sourceId) {
       await sourceRepo.updateSource(sourceId, {
         status: 'duplicate',
         stage: null,
-        errorMessage: `Already added to this notebook as "${existing.title}"`,
+        errorMessage: `Already added to this memorybook as "${existing.title}"`,
       });
       return true;
     }
@@ -133,7 +133,7 @@ async function claimContentHashOrMarkDuplicate(
         await sourceRepo.updateSource(sourceId, {
           status: 'duplicate',
           stage: null,
-          errorMessage: 'This content was already added to this notebook (concurrent upload).',
+          errorMessage: 'This content was already added to this memorybook (concurrent upload).',
         });
         return true;
       }
@@ -181,7 +181,7 @@ export const ingestFileFunction = inngest.createFunction(
     onFailure: handleIngestionFailure,
   },
   async ({ event, step }) => {
-    const { sourceId, notebookId, userId, fileUrl, mimeType, originalName } = event.data;
+    const { sourceId, memorybookId, userId, fileUrl, mimeType, originalName } = event.data;
 
     await step.run('mark-extracting', () => sourceRepo.updateSource(sourceId, { stage: 'extracting' }));
 
@@ -205,7 +205,7 @@ export const ingestFileFunction = inngest.createFunction(
 
     await chunkPersistAndFanOut(step, {
       sourceId,
-      notebookId,
+      memorybookId,
       userId,
       title: originalName,
       rawText,
@@ -223,16 +223,16 @@ export const ingestWebsiteFunction = inngest.createFunction(
     onFailure: handleIngestionFailure,
   },
   async ({ event, step }) => {
-    const { sourceId, notebookId, userId, url } = event.data;
+    const { sourceId, memorybookId, userId, url } = event.data;
 
     await step.run('mark-extracting', () => sourceRepo.updateSource(sourceId, { stage: 'extracting' }));
 
     const { title, markdown } = await step.run('scrape-website', () => firecrawlService.scrapeUrl(url));
 
-    const isDuplicate = await claimContentHashOrMarkDuplicate(step, { sourceId, notebookId, rawText: markdown });
+    const isDuplicate = await claimContentHashOrMarkDuplicate(step, { sourceId, memorybookId, rawText: markdown });
     if (isDuplicate) return;
 
-    await chunkPersistAndFanOut(step, { sourceId, notebookId, userId, title, rawText: markdown, fileType: 'web' });
+    await chunkPersistAndFanOut(step, { sourceId, memorybookId, userId, title, rawText: markdown, fileType: 'web' });
   }
 );
 
@@ -245,16 +245,16 @@ export const ingestYoutubeFunction = inngest.createFunction(
     onFailure: handleIngestionFailure,
   },
   async ({ event, step }) => {
-    const { sourceId, notebookId, userId, url } = event.data;
+    const { sourceId, memorybookId, userId, url } = event.data;
 
     await step.run('mark-extracting', () => sourceRepo.updateSource(sourceId, { stage: 'extracting' }));
 
     const { title, text } = await step.run('fetch-youtube-transcript', () => youtubeService.getTranscript(url));
 
-    const isDuplicate = await claimContentHashOrMarkDuplicate(step, { sourceId, notebookId, rawText: text });
+    const isDuplicate = await claimContentHashOrMarkDuplicate(step, { sourceId, memorybookId, rawText: text });
     if (isDuplicate) return;
 
-    await chunkPersistAndFanOut(step, { sourceId, notebookId, userId, title, rawText: text, fileType: 'youtube' });
+    await chunkPersistAndFanOut(step, { sourceId, memorybookId, userId, title, rawText: text, fileType: 'youtube' });
   }
 );
 
@@ -267,10 +267,10 @@ export const ingestTextFunction = inngest.createFunction(
     onFailure: handleIngestionFailure,
   },
   async ({ event, step }) => {
-    const { sourceId, notebookId, userId, title, content } = event.data;
+    const { sourceId, memorybookId, userId, title, content } = event.data;
     // contentHash was already computed and dedup-checked synchronously in
     // source.service.ts before this event was even sent — no
     // check-duplicate step needed here (unlike website/YouTube).
-    await chunkPersistAndFanOut(step, { sourceId, notebookId, userId, title, rawText: content, fileType: 'text' });
+    await chunkPersistAndFanOut(step, { sourceId, memorybookId, userId, title, rawText: content, fileType: 'text' });
   }
 );

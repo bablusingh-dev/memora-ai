@@ -52,7 +52,7 @@ export const graphExtractChunkFunction = inngest.createFunction(
     },
   },
   async ({ event, step }) => {
-    const { chunkId, notebookId, userId } = event.data;
+    const { chunkId, memorybookId, userId } = event.data;
 
     const chunk = await step.run('fetch-chunk', () => chunkRepo.findForGraphExtraction(chunkId));
     if (!chunk) {
@@ -73,7 +73,7 @@ export const graphExtractChunkFunction = inngest.createFunction(
         model: openai('gpt-4o-mini'),
         output: Output.object({ schema: GraphExtractionSchema }),
         prompt: `
-You are a precise Knowledge Graph Extraction Engine for a NotebookLLM system.
+You are a precise Knowledge Graph Extraction Engine for a MemorybookLLM system.
 
 Your task: extract only explicitly supported subject-predicate-object triples from the text below.
 
@@ -103,7 +103,7 @@ ${EXTRACTION_GUIDANCE}
     if (triples.length > 0) {
       await step.run('upsert-triples', async () => {
         const graphProvider = GraphFactory.getProvider();
-        await graphProvider.upsertBatchTriples(triples, notebookId, userId || 'default_user');
+        await graphProvider.upsertBatchTriples(triples, memorybookId, userId || 'default_user');
       });
     }
 
@@ -125,7 +125,7 @@ export const graphBackfillFunction = inngest.createFunction(
 
     await step.sendEvent(
       'fan-out-pending-chunks',
-      pending.map((c) => graphChunkCreated.create({ chunkId: c.id, notebookId: c.notebookId, userId: c.userId }))
+      pending.map((c) => graphChunkCreated.create({ chunkId: c.id, memorybookId: c.memorybookId, userId: c.userId }))
     );
 
     logger.info({ count: pending.length }, '[GraphBackfill] Fanned out pending chunks for graph extraction');

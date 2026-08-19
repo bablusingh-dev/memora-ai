@@ -15,19 +15,19 @@ const createNoteSchema = z.object({
 });
 
 export const getNotes = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const notebookId = req.params.notebookId as string;
+  const memorybookId = req.params.memorybookId as string;
   const userId = req.userId!;
-  const notesList = await noteService.getNotes(notebookId, userId);
+  const notesList = await noteService.getNotes(memorybookId, userId);
 
   return ApiResponse.success({
     res,
     data: notesList,
-    message: 'Notebook notes fetched successfully',
+    message: 'Memorybook notes fetched successfully',
   });
 });
 
 export const createNote = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const notebookId = req.params.notebookId as string;
+  const memorybookId = req.params.memorybookId as string;
   const userId = req.userId!;
 
   const parseResult = createNoteSchema.safeParse(req.body);
@@ -36,7 +36,7 @@ export const createNote = asyncHandler(async (req: AuthenticatedRequest, res: Re
   }
 
   const { title, content, type } = parseResult.data;
-  const newNote = await noteService.createNote(notebookId, userId, title, content, type);
+  const newNote = await noteService.createNote(memorybookId, userId, title, content, type);
 
   return ApiResponse.created({
     res,
@@ -46,11 +46,11 @@ export const createNote = asyncHandler(async (req: AuthenticatedRequest, res: Re
 });
 
 export const deleteNote = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const notebookId = req.params.notebookId as string;
+  const memorybookId = req.params.memorybookId as string;
   const noteId = req.params.id as string;
   const userId = req.userId!;
 
-  await noteService.deleteNote(notebookId, noteId, userId);
+  await noteService.deleteNote(memorybookId, noteId, userId);
 
   return ApiResponse.success({
     res,

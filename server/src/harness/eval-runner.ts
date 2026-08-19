@@ -9,7 +9,7 @@ import { logger } from '../utils/logger.js';
 
 async function runEvaluationSuite() {
   console.log('\n=============================================================================');
-  console.log('   MEMORA AI: COGNITIVE MEMORY & EVALUATION HARNESS BENCHMARK SUITE');
+  console.log('   MEMORYBOOK: COGNITIVE MEMORY & EVALUATION HARNESS BENCHMARK SUITE');
   console.log('=============================================================================\n');
 
   const datasetPath = path.join(__dirname, 'golden-dataset.json');
@@ -77,7 +77,7 @@ async function runEvaluationSuite() {
         const openai = createOpenAI({ apiKey: env.OPENAI_API_KEY });
         const { text } = await generateText({
           model: openai(env.OPENAI_MODEL),
-          system: `You are Memora AI with multi-tier memory. Answer the user query strictly adhering to the following retrieved memory and rules:\n${contextString}`,
+          system: `You are Memorybook with multi-tier memory. Answer the user query strictly adhering to the following retrieved memory and rules:\n${contextString}`,
           prompt: tc.query,
           temperature: 0.2,
         });

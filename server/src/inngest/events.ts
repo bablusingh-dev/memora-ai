@@ -40,7 +40,7 @@ export const systemHealthCheck = eventType('system/health.check', {
  */
 const ingestionBaseFields = {
   sourceId: z.string().uuid(),
-  notebookId: z.string().uuid(),
+  memorybookId: z.string().uuid(),
   userId: z.string().min(1),
 };
 
@@ -86,7 +86,7 @@ export const sourceTextRequested = eventType('source/text.requested', {
 export const graphChunkCreated = eventType('graph/chunk.created', {
   schema: z.object({
     chunkId: z.string().uuid(),
-    notebookId: z.string().uuid(),
+    memorybookId: z.string().uuid(),
     userId: z.string().min(1),
   }),
 });
@@ -98,7 +98,7 @@ export const graphChunkCreated = eventType('graph/chunk.created', {
 export const chatMessageCompleted = eventType('chat/message.completed', {
   schema: z.object({
     userId: z.string().min(1),
-    notebookId: z.string().uuid(),
+    memorybookId: z.string().uuid(),
     chatMessageId: z.string().uuid().optional(),
     userMessage: z.string(),
     assistantReply: z.string(),

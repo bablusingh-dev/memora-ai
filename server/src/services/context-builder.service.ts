@@ -24,7 +24,7 @@ export class ContextBuilderService {
    *
    * Enforces env.MAX_CONTEXT_TOKENS: previously the assembled context could
    * grow unboundedly with enough retrieved chunks/graph facts on a large
-   * notebook, risking silently overflowing the model's context window. Both
+   * memorybook, risking silently overflowing the model's context window. Both
    * knowledgeChunks and entityGraph already arrive sorted by relevance
    * (highest first), so trimming from the tail drops the least-relevant
    * items first — document chunks are trimmed before graph facts, since

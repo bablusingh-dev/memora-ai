@@ -18,7 +18,7 @@ export const getHealth = asyncHandler(async (req: Request, res: Response) => {
   return ApiResponse.success({
     res,
     statusCode: allHealthy ? 200 : 503,
-    message: allHealthy ? 'Memora AI Server Health Check OK' : 'One or more services are degraded',
+    message: allHealthy ? 'Memorybook Server Health Check OK' : 'One or more services are degraded',
     data: {
       status: allHealthy ? 'healthy' : 'degraded',
       uptime: process.uptime(),

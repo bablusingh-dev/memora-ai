@@ -6,11 +6,11 @@ export type Note = typeof notes.$inferSelect;
 export type NewNote = typeof notes.$inferInsert;
 
 export class NoteRepository {
-  async findByNotebookId(notebookId: string): Promise<Note[]> {
+  async findByMemorybookId(memorybookId: string): Promise<Note[]> {
     return await db
       .select()
       .from(notes)
-      .where(eq(notes.notebookId, notebookId))
+      .where(eq(notes.memorybookId, memorybookId))
       .orderBy(desc(notes.createdAt));
   }
 
@@ -19,10 +19,10 @@ export class NoteRepository {
     return result[0];
   }
 
-  async deleteNote(id: string, notebookId: string): Promise<boolean> {
+  async deleteNote(id: string, memorybookId: string): Promise<boolean> {
     const result = await db
       .delete(notes)
-      .where(and(eq(notes.id, id), eq(notes.notebookId, notebookId)))
+      .where(and(eq(notes.id, id), eq(notes.memorybookId, memorybookId)))
       .returning();
     return result.length > 0;
   }

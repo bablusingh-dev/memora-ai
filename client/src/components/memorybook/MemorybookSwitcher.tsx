@@ -11,20 +11,20 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { useNotebookStore } from '@/store/useNotebookStore';
+import { useMemorybookStore } from '@/store/useMemorybookStore';
 import { ChevronDown, Plus, BookOpen, Check, Trash2, Search } from 'lucide-react';
 
-export function NotebookSwitcher() {
-  const { notebooks, activeNotebook, setActiveNotebook, setCreateModalOpen, deleteNotebook } =
-    useNotebookStore();
+export function MemorybookSwitcher() {
+  const { memorybooks, activeMemorybook, setActiveMemorybook, setCreateModalOpen, deleteMemorybook } =
+    useMemorybookStore();
   const [search, setSearch] = useState('');
 
-  const filteredNotebooks = useMemo(() => {
-    if (!search.trim()) return notebooks;
-    return notebooks.filter((n) =>
+  const filteredMemorybooks = useMemo(() => {
+    if (!search.trim()) return memorybooks;
+    return memorybooks.filter((n) =>
       n.title.toLowerCase().includes(search.toLowerCase())
     );
-  }, [notebooks, search]);
+  }, [memorybooks, search]);
 
   return (
     <div className="flex items-center space-x-2">
@@ -37,7 +37,7 @@ export function NotebookSwitcher() {
             <div className="flex items-center gap-1.5 truncate">
               <BookOpen className="w-3.5 h-3.5 text-primary shrink-0" />
               <span className="truncate">
-                {activeNotebook ? activeNotebook.title : 'Select Workspace'}
+                {activeMemorybook ? activeMemorybook.title : 'Select Workspace'}
               </span>
             </div>
             <ChevronDown className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
@@ -51,7 +51,7 @@ export function NotebookSwitcher() {
           <div className="p-2 space-y-2">
             <div className="flex items-center justify-between">
               <DropdownMenuLabel className="text-xs font-bold text-foreground p-0">
-                Workspaces ({notebooks.length})
+                Workspaces ({memorybooks.length})
               </DropdownMenuLabel>
               <button
                 onClick={() => setCreateModalOpen(true)}
@@ -75,21 +75,21 @@ export function NotebookSwitcher() {
           <DropdownMenuSeparator className="bg-transparent my-0.5" />
 
           <div className="max-h-[220px] overflow-y-auto space-y-1 py-1 px-1">
-            {notebooks.length === 0 ? (
+            {memorybooks.length === 0 ? (
               <div className="p-4 text-center text-xs text-muted-foreground">
                 No workspaces found. Click below to create one!
               </div>
-            ) : filteredNotebooks.length === 0 ? (
+            ) : filteredMemorybooks.length === 0 ? (
               <div className="p-3 text-center text-xs text-muted-foreground">
                 No matches for "{search}"
               </div>
             ) : (
-              filteredNotebooks.map((nb) => {
-                const isActive = activeNotebook?.id === nb.id;
+              filteredMemorybooks.map((nb) => {
+                const isActive = activeMemorybook?.id === nb.id;
                 return (
                   <DropdownMenuItem
                     key={nb.id}
-                    onClick={() => setActiveNotebook(nb)}
+                    onClick={() => setActiveMemorybook(nb)}
                     className={`flex items-center justify-between group cursor-pointer p-2.5 rounded-xl transition-colors duration-150 ${
                       isActive
                         ? 'bg-primary/10 text-primary font-semibold'
@@ -118,7 +118,7 @@ export function NotebookSwitcher() {
                         onClick={(e) => {
                           e.stopPropagation();
                           if (confirm(`Delete workspace "${nb.title}"?`)) {
-                            deleteNotebook(nb.id);
+                            deleteMemorybook(nb.id);
                           }
                         }}
                         className="opacity-0 group-hover:opacity-100 p-1 hover:text-destructive transition-opacity text-muted-foreground"

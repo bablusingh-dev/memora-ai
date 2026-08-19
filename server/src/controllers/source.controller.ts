@@ -18,26 +18,26 @@ const textSchema = z.object({
 });
 
 export const getSources = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const notebookId = req.params.notebookId as string;
+  const memorybookId = req.params.memorybookId as string;
   const userId = req.userId!;
-  const sources = await sourceService.getSources(notebookId, userId);
+  const sources = await sourceService.getSources(memorybookId, userId);
 
   return ApiResponse.success({
     res,
     data: sources,
-    message: 'Notebook source documents fetched successfully',
+    message: 'Memorybook source documents fetched successfully',
   });
 });
 
 export const uploadSourceFile = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const notebookId = req.params.notebookId as string;
+  const memorybookId = req.params.memorybookId as string;
   const userId = req.userId!;
 
   if (!req.file) {
     throw new BadRequestError('No file uploaded');
   }
 
-  const source = await sourceService.ingestFile(notebookId, userId, req.file);
+  const source = await sourceService.ingestFile(memorybookId, userId, req.file);
 
   return ApiResponse.accepted({
     res,
@@ -47,7 +47,7 @@ export const uploadSourceFile = asyncHandler(async (req: AuthenticatedRequest, r
 });
 
 export const ingestWebsite = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const notebookId = req.params.notebookId as string;
+  const memorybookId = req.params.memorybookId as string;
   const userId = req.userId!;
 
   const parseResult = urlSchema.safeParse(req.body);
@@ -55,7 +55,7 @@ export const ingestWebsite = asyncHandler(async (req: AuthenticatedRequest, res:
     throw new BadRequestError('Invalid website payload', parseResult.error.format());
   }
 
-  const source = await sourceService.ingestWebsite(notebookId, userId, parseResult.data.url);
+  const source = await sourceService.ingestWebsite(memorybookId, userId, parseResult.data.url);
 
   return ApiResponse.accepted({
     res,
@@ -65,7 +65,7 @@ export const ingestWebsite = asyncHandler(async (req: AuthenticatedRequest, res:
 });
 
 export const ingestYoutube = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const notebookId = req.params.notebookId as string;
+  const memorybookId = req.params.memorybookId as string;
   const userId = req.userId!;
 
   const parseResult = urlSchema.safeParse(req.body);
@@ -73,7 +73,7 @@ export const ingestYoutube = asyncHandler(async (req: AuthenticatedRequest, res:
     throw new BadRequestError('Invalid YouTube payload', parseResult.error.format());
   }
 
-  const source = await sourceService.ingestYoutube(notebookId, userId, parseResult.data.url);
+  const source = await sourceService.ingestYoutube(memorybookId, userId, parseResult.data.url);
 
   return ApiResponse.accepted({
     res,
@@ -83,7 +83,7 @@ export const ingestYoutube = asyncHandler(async (req: AuthenticatedRequest, res:
 });
 
 export const ingestTextNote = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const notebookId = req.params.notebookId as string;
+  const memorybookId = req.params.memorybookId as string;
   const userId = req.userId!;
 
   const parseResult = textSchema.safeParse(req.body);
@@ -92,7 +92,7 @@ export const ingestTextNote = asyncHandler(async (req: AuthenticatedRequest, res
   }
 
   const { title, content } = parseResult.data;
-  const source = await sourceService.ingestText(notebookId, userId, title, content);
+  const source = await sourceService.ingestText(memorybookId, userId, title, content);
 
   return ApiResponse.accepted({
     res,
@@ -102,11 +102,11 @@ export const ingestTextNote = asyncHandler(async (req: AuthenticatedRequest, res
 });
 
 export const deleteSource = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const notebookId = req.params.notebookId as string;
+  const memorybookId = req.params.memorybookId as string;
   const sourceId = req.params.id as string;
   const userId = req.userId!;
 
-  await sourceService.deleteSource(notebookId, sourceId, userId);
+  await sourceService.deleteSource(memorybookId, sourceId, userId);
 
   return ApiResponse.success({
     res,

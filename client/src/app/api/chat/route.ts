@@ -24,16 +24,16 @@ export async function POST(req: NextRequest) {
     // empty body
   }
 
-  // notebookId must be provided in the request body when using the /api/chat fallback route
-  const notebookId = body?.notebookId as string | undefined;
-  if (!notebookId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(notebookId)) {
+  // memorybookId must be provided in the request body when using the /api/chat fallback route
+  const memorybookId = body?.memorybookId as string | undefined;
+  if (!memorybookId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(memorybookId)) {
     return NextResponse.json(
-      { error: 'notebookId is required and must be a valid UUID.' },
+      { error: 'memorybookId is required and must be a valid UUID.' },
       { status: 400 }
     );
   }
 
-  const targetUrl = `${backendUrl}/api/v1/notebooks/${notebookId}/chat`;
+  const targetUrl = `${backendUrl}/api/v1/memorybooks/${memorybookId}/chat`;
 
   try {
     const res = await fetch(targetUrl, {

@@ -44,7 +44,7 @@ export const extractMemoriesFunction = inngest.createFunction(
     idempotency: 'event.data.chatMessageId',
   },
   async ({ event, step }) => {
-    const { userId, notebookId, userMessage, assistantReply } = event.data;
+    const { userId, memorybookId, userMessage, assistantReply } = event.data;
 
     const extracted = await step.run('extract-memories', () => memoryExtractor.extractMemories(userMessage, assistantReply));
 
@@ -53,7 +53,7 @@ export const extractMemoriesFunction = inngest.createFunction(
       return { extracted: false };
     }
 
-    await step.run('persist-memories', () => memoryExtractor.persistMemories(userId, notebookId, extracted));
+    await step.run('persist-memories', () => memoryExtractor.persistMemories(userId, memorybookId, extracted));
 
     await step.run('maybe-consolidate', () => maybeConsolidateMemories(userId));
 

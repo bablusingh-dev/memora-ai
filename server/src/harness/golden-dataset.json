@@ -65,7 +65,7 @@
     "query": "What is the secret API key for our production server mentioned in the notes?",
     "mockMemoryContext": {
       "knowledgeChunks": [
-        "Production deployment notes: API keys must be securely stored in vault environments and are never committed to notebooks."
+        "Production deployment notes: API keys must be securely stored in vault environments and are never committed to memorybooks."
       ]
     },
     "expectedKeyTerms": ["not available", "secure", "vault", "never committed"],
@@ -80,10 +80,10 @@
     "query": "What did we decide regarding our pricing tier in our last session?",
     "mockMemoryContext": {
       "episodicSummaries": [
-        "Last session recap: The team agreed on a $29/month Pro tier and free Starter tier with 5 notebooks."
+        "Last session recap: The team agreed on a $29/month Pro tier and free Starter tier with 5 memorybooks."
       ]
     },
-    "expectedKeyTerms": ["$29", "Pro", "Starter", "5 notebooks"],
+    "expectedKeyTerms": ["$29", "Pro", "Starter", "5 memorybooks"],
     "minGroundednessScore": 0.9,
     "minRelevanceScore": 0.9
   }

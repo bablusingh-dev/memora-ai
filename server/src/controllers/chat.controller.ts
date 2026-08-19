@@ -8,10 +8,10 @@ import { ApiResponse } from '../utils/api-response.js';
 const agentService = new AgentService();
 
 export const handleGetChatHistory = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const notebookId = req.params.notebookId as string;
+  const memorybookId = req.params.memorybookId as string;
   const userId = req.userId!;
 
-  const messages = await agentService.getChatHistory(notebookId, userId);
+  const messages = await agentService.getChatHistory(memorybookId, userId);
 
   return ApiResponse.success({
     res,
@@ -21,10 +21,10 @@ export const handleGetChatHistory = asyncHandler(async (req: AuthenticatedReques
 });
 
 export const handleClearChatHistory = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const notebookId = req.params.notebookId as string;
+  const memorybookId = req.params.memorybookId as string;
   const userId = req.userId!;
 
-  await agentService.clearChatHistory(notebookId, userId);
+  await agentService.clearChatHistory(memorybookId, userId);
 
   return ApiResponse.success({
     res,
@@ -34,7 +34,7 @@ export const handleClearChatHistory = asyncHandler(async (req: AuthenticatedRequ
 });
 
 export const handleAgentChatStream = asyncHandler(async (req: AuthenticatedRequest, res: Response) => {
-  const notebookId = req.params.notebookId as string;
+  const memorybookId = req.params.memorybookId as string;
   const userId = req.userId!;
   const { messages, enableWebSearch } = req.body;
 
@@ -47,7 +47,7 @@ export const handleAgentChatStream = asyncHandler(async (req: AuthenticatedReque
   // dumping all content at once.
   res.socket?.setNoDelay(true);
 
-  const result = await agentService.streamAgentChat(notebookId, userId, messages, {
+  const result = await agentService.streamAgentChat(memorybookId, userId, messages, {
     enableWebSearch: Boolean(enableWebSearch),
   });
 

@@ -10,7 +10,7 @@ import { HowItsBuilt } from '@/components/landing/HowItsBuilt';
 import { FaqSection } from '@/components/landing/FaqSection';
 import { ClosingCta } from '@/components/landing/ClosingCta';
 import { Footer } from '@/components/landing/Footer';
-import { CreateNotebookModal } from '@/components/notebook/CreateNotebookModal';
+import { CreateMemorybookModal } from '@/components/memorybook/CreateMemorybookModal';
 import { useAuth } from '@clerk/nextjs';
 import { setAuthToken, setTokenGetter } from '@/lib/api-client';
 
@@ -41,7 +41,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col font-sans antialiased selection:bg-primary/20 selection:text-primary">
       {isValidClerkKey && <ClerkAuthSync />}
-      <CreateNotebookModal />
+      <CreateMemorybookModal />
 
       {/* Header Navbar */}
       <Navbar />

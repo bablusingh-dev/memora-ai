@@ -25,10 +25,10 @@ export class Neo4jGraphProvider implements IGraphProvider {
 
       const session = this.getSession();
       try {
-        // Entity unique constraint: (name, notebookId) pair must be unique
+        // Entity unique constraint: (name, memorybookId) pair must be unique
         await session.run(`
-          CREATE CONSTRAINT entity_name_notebook_unique IF NOT EXISTS
-          FOR (e:Entity) REQUIRE (e.normalizedName, e.notebookId) IS UNIQUE
+          CREATE CONSTRAINT entity_name_memorybook_unique IF NOT EXISTS
+          FOR (e:Entity) REQUIRE (e.normalizedName, e.memorybookId) IS UNIQUE
         `);
         // Index on normalizedName for fast canonical lookups
         await session.run(`
@@ -94,7 +94,7 @@ export class Neo4jGraphProvider implements IGraphProvider {
     try {
       const normalizedName = entity.name.toLowerCase().trim();
       const cypher = `
-        MERGE (e:Entity { normalizedName: $normalizedName, notebookId: $notebookId })
+        MERGE (e:Entity { normalizedName: $normalizedName, memorybookId: $memorybookId })
         ON CREATE SET
           e.id = $id,
           e.name = $name,
@@ -111,13 +111,13 @@ export class Neo4jGraphProvider implements IGraphProvider {
           e.updatedAt = datetime()
         RETURN e
       `;
-      // notebookId is passed via entity.properties if available, else userId scope
-      const notebookId = (entity.properties?.notebookId as string) || userId;
+      // memorybookId is passed via entity.properties if available, else userId scope
+      const memorybookId = (entity.properties?.memorybookId as string) || userId;
       await session.run(cypher, {
         id: entity.id,
         name: entity.name.trim(),
         normalizedName,
-        notebookId,
+        memorybookId,
         userId,
         type: entity.type || 'Concept',
         description: entity.description || '',
@@ -185,14 +185,14 @@ export class Neo4jGraphProvider implements IGraphProvider {
   // Batch triple upsert WITH provenance — primary ingestion path
   //
   // Fixes (vs old implementation):
-  //   1. Entity identity: (normalizedName, notebookId) — consistent across write + read.
+  //   1. Entity identity: (normalizedName, memorybookId) — consistent across write + read.
   //   2. Relationship type: stored as actual Neo4j rel-type (e.g. CREATED_BY, TREATS).
   //   3. Provenance: sourceChunkId, evidence, confidence on every relationship.
   //   4. Deduplication: ON MATCH appends the new sourceChunkId to sourceChunkIds array.
   // ---------------------------------------------------------------------------
   async upsertBatchTriples(
     triples: GraphTriple[],
-    notebookId: string,
+    memorybookId: string,
     userId = 'default_user'
   ): Promise<void> {
     if (!triples || triples.length === 0) return;
@@ -210,7 +210,7 @@ export class Neo4jGraphProvider implements IGraphProvider {
 
         // Upsert source entity
         await session.run(`
-          MERGE (e:Entity { normalizedName: $norm, notebookId: $notebookId })
+          MERGE (e:Entity { normalizedName: $norm, memorybookId: $memorybookId })
           ON CREATE SET
             e.name = $name,
             e.type = $type,
@@ -225,11 +225,11 @@ export class Neo4jGraphProvider implements IGraphProvider {
               ELSE e.sourceChunkIds
             END,
             e.updatedAt = datetime()
-        `, { norm: sourceNorm, name: t.sourceName.trim(), type: t.sourceType || 'Concept', notebookId, userId, chunkId });
+        `, { norm: sourceNorm, name: t.sourceName.trim(), type: t.sourceType || 'Concept', memorybookId, userId, chunkId });
 
         // Upsert target entity
         await session.run(`
-          MERGE (e:Entity { normalizedName: $norm, notebookId: $notebookId })
+          MERGE (e:Entity { normalizedName: $norm, memorybookId: $memorybookId })
           ON CREATE SET
             e.name = $name,
             e.type = $type,
@@ -244,12 +244,12 @@ export class Neo4jGraphProvider implements IGraphProvider {
               ELSE e.sourceChunkIds
             END,
             e.updatedAt = datetime()
-        `, { norm: targetNorm, name: t.targetName.trim(), type: t.targetType || 'Concept', notebookId, userId, chunkId });
+        `, { norm: targetNorm, name: t.targetName.trim(), type: t.targetType || 'Concept', memorybookId, userId, chunkId });
 
         // Upsert relationship using the semantic type; append sourceChunkId on match
         await session.run(`
-          MATCH (s:Entity { normalizedName: $sourceNorm, notebookId: $notebookId })
-          MATCH (tgt:Entity { normalizedName: $targetNorm, notebookId: $notebookId })
+          MATCH (s:Entity { normalizedName: $sourceNorm, memorybookId: $memorybookId })
+          MATCH (tgt:Entity { normalizedName: $targetNorm, memorybookId: $memorybookId })
           MERGE (s)-[r:\`${relType}\`]->(tgt)
           ON CREATE SET
             r.confidence = $confidence,
@@ -267,16 +267,16 @@ export class Neo4jGraphProvider implements IGraphProvider {
         `, {
           sourceNorm,
           targetNorm,
-          notebookId,
+          memorybookId,
           confidence: t.confidence ?? 0.8,
           evidence: t.evidence || t.context || '',
           chunkId,
         });
       }
 
-      logger.info({ count: triples.length, notebookId }, 'Batch upserted graph triples with provenance into Neo4j');
+      logger.info({ count: triples.length, memorybookId }, 'Batch upserted graph triples with provenance into Neo4j');
     } catch (err) {
-      logger.error({ err, notebookId }, 'Failed to batch upsert triples in Neo4j');
+      logger.error({ err, memorybookId }, 'Failed to batch upsert triples in Neo4j');
     } finally {
       await session.close();
     }
@@ -286,13 +286,13 @@ export class Neo4jGraphProvider implements IGraphProvider {
   // Query-driven neighbor retrieval
   //
   // Fixes:
-  //   - Scopes by notebookId (consistent with how entities are written).
+  //   - Scopes by memorybookId (consistent with how entities are written).
   //   - Optionally filters by relationship types relevant to the query.
   //   - Caps results to prevent massive context injection.
   // ---------------------------------------------------------------------------
   async getNeighborsByQuery(
     entityNames: string[],
-    notebookId: string,
+    memorybookId: string,
     relevantRelTypes: string[] = [],
     maxHops = 2
   ): Promise<GraphQueryResult> {
@@ -309,15 +309,15 @@ export class Neo4jGraphProvider implements IGraphProvider {
 
       const hops = Math.min(maxHops, 2);
       const cypher = `
-        MATCH (s:Entity { notebookId: $notebookId })
+        MATCH (s:Entity { memorybookId: $memorybookId })
         WHERE s.normalizedName IN $entityNames
-        OPTIONAL MATCH (s)-[r*1..${hops}]-(t:Entity { notebookId: $notebookId })
+        OPTIONAL MATCH (s)-[r*1..${hops}]-(t:Entity { memorybookId: $memorybookId })
         WHERE ALL(rel IN r WHERE type(rel) IN CASE WHEN size($relTypes) > 0 THEN $relTypes ELSE [type(rel)] END)
         RETURN s, r, t
         LIMIT 30
       `;
       const result = await session.run(cypher, {
-        notebookId,
+        memorybookId,
         entityNames: cleanNames,
         relTypes: relevantRelTypes.map((rt) => rt.toUpperCase()),
       });
@@ -333,7 +333,7 @@ export class Neo4jGraphProvider implements IGraphProvider {
 
   // ---------------------------------------------------------------------------
   // Legacy getNeighbors — kept for backward compatibility
-  // Now correctly scopes by notebookId (was incorrectly using userId before)
+  // Now correctly scopes by memorybookId (was incorrectly using userId before)
   // ---------------------------------------------------------------------------
   async getNeighbors(entityNames: string[], userId = 'default_user', maxHops = 2): Promise<GraphQueryResult> {
     const cleanNames = entityNames.map((n) => n.toLowerCase().trim()).filter(Boolean);

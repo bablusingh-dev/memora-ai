@@ -18,7 +18,7 @@ import {
   Quote,
 } from 'lucide-react';
 import { useAuth, useClerk } from '@clerk/nextjs';
-import { useNotebookStore } from '@/store/useNotebookStore';
+import { useMemorybookStore } from '@/store/useMemorybookStore';
 
 const publishableKey = process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY;
 const isValidClerkKey =
@@ -28,7 +28,7 @@ const isValidClerkKey =
 
 export function HeroSection() {
   const router = useRouter();
-  const setCreateModalOpen = useNotebookStore((state) => state.setCreateModalOpen);
+  const setCreateModalOpen = useMemorybookStore((state) => state.setCreateModalOpen);
 
   let isSignedIn = false;
   let clerk: any = null;
@@ -86,7 +86,7 @@ export function HeroSection() {
         {/* Subtitle */}
         <Reveal delay={0.1}>
           <p className="text-base sm:text-lg text-muted-foreground max-w-2xl mx-auto mb-12 leading-relaxed font-normal">
-            Drop in research papers, web pages, YouTube videos, and notes. Memora reads
+            Drop in research papers, web pages, YouTube videos, and notes. Memorybook reads
             everything, answers with exact citations back to the source, and turns your
             workspace into a short audio briefing you can listen to on the go.
           </p>
