@@ -140,7 +140,7 @@ export function SourcesPanel() {
           variant="secondary"
           className="text-[10px] bg-primary/10 text-primary font-semibold px-2 py-0.5 border-0"
         >
-          ParadeDB BM25
+          Indexed & searchable
         </Badge>
       </div>
 
@@ -312,7 +312,7 @@ export function SourcesPanel() {
               <span className="truncate">{inspectSource?.title}</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
-              Inspecting ParadeDB BM25 indexed source document metadata and RAG status.
+              Source details and indexing status.
             </DialogDescription>
           </DialogHeader>
 
@@ -354,10 +354,10 @@ export function SourcesPanel() {
               <div className="p-3 rounded-2xl bg-muted/20 border-0 space-y-1">
                 <div className="flex items-center space-x-1.5 text-xs font-bold text-foreground">
                   <Layers className="w-3.5 h-3.5 text-primary" />
-                  <span>Document RAG Grounding</span>
+                  <span>Grounding</span>
                 </div>
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
-                  This document has been chunked into overlapping passages and indexed into ParadeDB for real-time BM25 algorithmic retrieval during chat synthesis.
+                  This document has been processed and indexed so it can be searched and cited during chat.
                 </p>
               </div>
             </div>

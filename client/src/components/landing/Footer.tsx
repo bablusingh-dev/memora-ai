@@ -19,11 +19,10 @@ export function Footer() {
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-2 text-[11px] text-muted-foreground font-medium">
-            <span className="bg-muted px-3.5 py-1.5 rounded-full">Next.js 16</span>
-            <span className="bg-muted px-3.5 py-1.5 rounded-full">ParadeDB BM25</span>
-            <span className="bg-muted px-3.5 py-1.5 rounded-full">Drizzle ORM</span>
-            <span className="bg-muted px-3.5 py-1.5 rounded-full">Clerk Auth</span>
-            <span className="bg-muted px-3.5 py-1.5 rounded-full">Firecrawl</span>
+            <span className="bg-muted px-3.5 py-1.5 rounded-full">Multi-format import</span>
+            <span className="bg-muted px-3.5 py-1.5 rounded-full">Grounded citations</span>
+            <span className="bg-muted px-3.5 py-1.5 rounded-full">Semantic search</span>
+            <span className="bg-muted px-3.5 py-1.5 rounded-full">Secure & private</span>
           </div>
 
           <div className="text-xs text-muted-foreground font-normal">

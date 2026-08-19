@@ -110,6 +110,6 @@ export const searchMemorybookRAG = asyncHandler(async (req: AuthenticatedRequest
   return ApiResponse.success({
     res,
     data: ragResult,
-    message: 'Vectorless ParadeDB BM25 search completed successfully',
+    message: 'Search completed successfully',
   });
 });

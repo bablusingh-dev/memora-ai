@@ -12,6 +12,7 @@ import {
 } from './graph-extract.js';
 import { embeddingBackfillFunction } from './embedding-backfill.js';
 import { extractMemoriesFunction } from './extract-memories.js';
+import { generateStudioArtifactFunction } from './generate-studio-artifact.js';
 
 /**
  * Every Inngest function registered by this app. Imported once by the
@@ -29,4 +30,5 @@ export const inngestFunctions = [
   graphCleanupMetaNodesFunction,
   embeddingBackfillFunction,
   extractMemoriesFunction,
+  generateStudioArtifactFunction,
 ];

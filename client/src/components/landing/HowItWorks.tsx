@@ -26,7 +26,7 @@ const steps = [
     step: '03',
     title: 'Synthesize & listen',
     description:
-      'Generate study guides, FAQs, and timelines from your material — or turn the whole workspace into a two-speaker audio overview.',
+      'Generate flashcards from your material to study — or turn the whole workspace into a two-speaker audio overview.',
   },
 ];
 

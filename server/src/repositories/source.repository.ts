@@ -1,13 +1,31 @@
-import { eq, and } from 'drizzle-orm';
+import { eq, and, asc } from 'drizzle-orm';
 import { db } from '../db/index.js';
 import { sourceDocuments, documentChunks } from '../db/schema.js';
 
 export type SourceDocument = typeof sourceDocuments.$inferSelect;
 export type NewSourceDocument = typeof sourceDocuments.$inferInsert;
 export type NewDocumentChunk = typeof documentChunks.$inferInsert;
+export type DocumentChunk = typeof documentChunks.$inferSelect;
 
 /** Postgres unique_violation error code (used to detect content-hash races). */
 export const UNIQUE_VIOLATION = '23505';
+
+/**
+ * Postgres text columns reject the null byte (U+0000) outright — extraction
+ * from PDFs/DOCX (and occasionally scraped HTML) can yield embedded \0s on
+ * malformed or partially-binary content, which otherwise surfaces as an
+ * opaque "invalid byte sequence for encoding UTF8" (22021) error deep in the
+ * insert. Strip them from every string field before they reach the driver.
+ */
+function stripNullBytes<T extends Record<string, unknown>>(row: T): T {
+  const cleaned: Record<string, unknown> = { ...row };
+  for (const [key, value] of Object.entries(cleaned)) {
+    if (typeof value === 'string' && value.indexOf('\u0000') !== -1) {
+      cleaned[key] = value.replace(/\u0000/g, '');
+    }
+  }
+  return cleaned as T;
+}
 
 export class SourceRepository {
   async findById(id: string): Promise<SourceDocument | null> {
@@ -77,9 +95,24 @@ export class SourceRepository {
     return result[0] || null;
   }
 
+  /**
+   * All chunks across every source in a memorybook, ordered per-document
+   * (sourceId, then chunkIndex) rather than by search relevance — used by
+   * Studio artifact generation (studio-context.service.ts), which needs a
+   * coherent read of "everything in this memorybook", not a query-ranked
+   * top-K like searchHybrid.
+   */
+  async findChunksByMemorybookId(memorybookId: string): Promise<DocumentChunk[]> {
+    return await db
+      .select()
+      .from(documentChunks)
+      .where(eq(documentChunks.memorybookId, memorybookId))
+      .orderBy(asc(documentChunks.sourceId), asc(documentChunks.chunkIndex));
+  }
+
   async insertChunks(chunks: NewDocumentChunk[]): Promise<void> {
     if (chunks.length === 0) return;
-    await db.insert(documentChunks).values(chunks);
+    await db.insert(documentChunks).values(chunks.map(stripNullBytes));
   }
 
   /**
@@ -88,7 +121,10 @@ export class SourceRepository {
    */
   async insertChunksReturningIds(chunks: NewDocumentChunk[]): Promise<string[]> {
     if (chunks.length === 0) return [];
-    const result = await db.insert(documentChunks).values(chunks).returning({ id: documentChunks.id });
+    const result = await db
+      .insert(documentChunks)
+      .values(chunks.map(stripNullBytes))
+      .returning({ id: documentChunks.id });
     return result.map((r) => r.id);
   }
 

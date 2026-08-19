@@ -12,19 +12,19 @@ export function FaqSection() {
         'Memorybook is a research workspace: create a workspace, upload your sources (PDFs, web pages, YouTube links, text files), and interact with them through context-grounded AI chat, generated study notes, and podcast-style audio overviews — all synthesized strictly from your own material.',
     },
     {
-      question: 'Why full-text BM25 search instead of vector embeddings?',
+      question: 'How accurate is the search over my sources?',
       answer:
-        'Memorybook uses ParadeDB pg_search to run full-text BM25 algorithmic search directly inside PostgreSQL. Vector embeddings can suffer from semantic drift and hallucination on precise technical terms, whereas BM25 ensures exact keyword matching and high-scoring chunk retrieval.',
+        'Memorybook combines full-text and semantic search so answers stay grounded in exact wording as well as related concepts — precise on technical terms, and resilient to phrasing that doesn\'t exactly match your sources.',
     },
     {
-      question: 'How is user data protected and isolated?',
+      question: 'How is my data protected and isolated?',
       answer:
-        'Memorybook implements multi-tenant Clerk Express authentication on the backend and frontend. Every database query, source document, and generated note is strictly scoped by your authenticated User ID.',
+        'Every workspace is private to your account. Your sources, chat history, and generated notes are strictly scoped to you and never visible to other users.',
     },
     {
       question: 'What file formats and source types are supported?',
       answer:
-        'Memorybook supports local PDF uploads, Markdown and TXT files, web page URLs (crawled and chunked via Firecrawl), and YouTube video URLs (with automated transcript extraction).',
+        'Memorybook supports local PDF uploads, Markdown and TXT files, web page URLs, and YouTube video links (with automated transcript extraction).',
     },
     {
       question: 'How does the Audio Overview feature function?',

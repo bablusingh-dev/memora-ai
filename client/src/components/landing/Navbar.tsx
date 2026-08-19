@@ -52,7 +52,7 @@ export function Navbar() {
             How It Works
           </a>
           <a href="#how-its-built" className="hover:text-foreground transition-colors">
-            How It's Built
+            What Powers It
           </a>
           <a href="#faq" className="hover:text-foreground transition-colors">
             FAQ

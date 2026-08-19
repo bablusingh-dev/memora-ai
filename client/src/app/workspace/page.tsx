@@ -113,7 +113,7 @@ export default function WorkspaceDashboardPage() {
               <span>Memorybook Workspace Guide</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground leading-relaxed mt-1">
-              Your grounded research workspace — full-text BM25 search plus PDF, web, and video ingestion.
+              Your grounded research workspace — powerful full-text and semantic search across PDFs, web pages, and videos.
             </DialogDescription>
           </DialogHeader>
 
@@ -124,7 +124,7 @@ export default function WorkspaceDashboardPage() {
                 <span>1. Add Document Sources</span>
               </div>
               <p className="text-[11px] text-muted-foreground leading-relaxed">
-                Upload PDFs, website URLs (scraped via Firecrawl), YouTube transcripts, or text notes into your workspace.
+                Upload PDFs, website URLs, YouTube videos, or paste in your own text notes.
               </p>
             </div>
 
@@ -160,15 +160,15 @@ export default function WorkspaceDashboardPage() {
               <span>Workspace Settings</span>
             </DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground mt-1">
-              Configure RAG parameters, search engines, and multi-tenant preferences.
+              Your workspace's search, import, and storage preferences.
             </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-2.5 text-xs">
             <div className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 shadow-2xs flex items-center justify-between">
               <div>
-                <p className="font-bold text-foreground">Search Engine</p>
-                <p className="text-[10px] text-muted-foreground">ParadeDB pg_search BM25 Indexing</p>
+                <p className="font-bold text-foreground">Search</p>
+                <p className="text-[10px] text-muted-foreground">Full-text + semantic search</p>
               </div>
               <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-500 font-mono text-[10px] border-0">
                 ACTIVE
@@ -177,8 +177,8 @@ export default function WorkspaceDashboardPage() {
 
             <div className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 shadow-2xs flex items-center justify-between">
               <div>
-                <p className="font-bold text-foreground">Web Scraping Service</p>
-                <p className="text-[10px] text-muted-foreground">Firecrawl HTML-to-Markdown Parser</p>
+                <p className="font-bold text-foreground">Web Import</p>
+                <p className="text-[10px] text-muted-foreground">Clean article import from any URL</p>
               </div>
               <Badge variant="secondary" className="bg-primary/10 text-primary font-mono text-[10px] border-0">
                 ENABLED
@@ -187,8 +187,8 @@ export default function WorkspaceDashboardPage() {
 
             <div className="p-3.5 rounded-2xl bg-white dark:bg-zinc-900 shadow-2xs flex items-center justify-between">
               <div>
-                <p className="font-bold text-foreground">CDN File Storage</p>
-                <p className="text-[10px] text-muted-foreground">Cloudinary Secure File Bucket</p>
+                <p className="font-bold text-foreground">File Storage</p>
+                <p className="text-[10px] text-muted-foreground">Secure cloud file storage</p>
               </div>
               <Badge variant="secondary" className="bg-amber-500/10 text-amber-500 font-mono text-[10px] border-0">
                 CONNECTED

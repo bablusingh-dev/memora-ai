@@ -57,3 +57,9 @@ export const createNoteSchema = z.object({
   content: z.string().trim().min(1, 'Note content is required'),
   type: z.string().trim().optional(),
 });
+
+// Studio Artifact Validators
+export const studioKindParamSchema = z.object({
+  memorybookId: z.string().uuid('Memorybook ID must be a valid UUID format'),
+  kind: z.enum(['flashcards'], { errorMap: () => ({ message: 'Unsupported studio artifact kind' }) }),
+});

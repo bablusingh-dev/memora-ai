@@ -1,11 +1,13 @@
 import { create } from 'zustand';
 import { apiClient } from '@/lib/api-client';
-import { Memorybook, SourceDocument, Note } from '@/types/api';
+import { Memorybook, SourceDocument, Note, StudioArtifact, StudioArtifactKind } from '@/types/api';
 
 interface MemorybookState {
   memorybooks: Memorybook[];
   activeMemorybook: Memorybook | null;
   activeNotes: Note[];
+  studioArtifacts: StudioArtifact[];
+  uiActiveStudioTab: 'audio' | 'studio' | 'notes';
   isLoading: boolean;
   error: string | null;
   isCreateModalOpen: boolean;
@@ -14,6 +16,7 @@ interface MemorybookState {
   // Actions
   setCreateModalOpen: (open: boolean) => void;
   setAddSourceModalOpen: (open: boolean) => void;
+  setActiveStudioTab: (tab: 'audio' | 'studio' | 'notes') => void;
   setActiveMemorybook: (memorybook: Memorybook | null) => Promise<void>;
   fetchMemorybooks: () => Promise<void>;
   createMemorybook: (title: string, description?: string) => Promise<Memorybook>;
@@ -31,6 +34,11 @@ interface MemorybookState {
   fetchNotes: () => Promise<void>;
   createNote: (title: string, content: string, type?: string) => Promise<Note>;
   deleteNote: (noteId: string) => Promise<void>;
+
+  // Studio Artifact Actions
+  fetchStudioArtifacts: () => Promise<void>;
+  generateStudioArtifact: (kind: StudioArtifactKind) => Promise<StudioArtifact>;
+  deleteStudioArtifact: (artifactId: string) => Promise<void>;
 }
 
 // ---------------------------------------------------------------------------
@@ -86,10 +94,55 @@ function ensureSourcePolling(
   }, POLL_INTERVAL_MS);
 }
 
+// ---------------------------------------------------------------------------
+// Studio artifact generation polling
+//
+// Same shape as ensureSourcePolling above: generation runs asynchronously
+// on the server (Inngest pipeline) — a successful "generate" call returns
+// immediately with status: 'generating'. This polls GET
+// /memorybooks/:id/studio every 3s and refreshes studioArtifacts until
+// nothing is still 'generating'. A single shared timer, bounded attempts,
+// same rationale as source polling.
+// ---------------------------------------------------------------------------
+let studioPollTimer: ReturnType<typeof setInterval> | null = null;
+let studioPollAttempts = 0;
+
+function ensureStudioPolling(
+  get: () => MemorybookState,
+  set: (partial: Partial<MemorybookState>) => void
+) {
+  if (studioPollTimer) return; // already polling
+
+  studioPollAttempts = 0;
+  studioPollTimer = setInterval(async () => {
+    const active = get().activeMemorybook;
+    studioPollAttempts += 1;
+
+    const stillGenerating = get().studioArtifacts.some((a) => a.status === 'generating');
+    if (!active || !stillGenerating || studioPollAttempts >= MAX_POLL_ATTEMPTS) {
+      if (studioPollTimer) clearInterval(studioPollTimer);
+      studioPollTimer = null;
+      return;
+    }
+
+    try {
+      const fresh = await apiClient.get<any, StudioArtifact[]>(`/memorybooks/${active.id}/studio`);
+      const current = get().activeMemorybook;
+      if (current && current.id === active.id) {
+        set({ studioArtifacts: fresh });
+      }
+    } catch {
+      // Transient poll failure — try again next tick.
+    }
+  }, POLL_INTERVAL_MS);
+}
+
 export const useMemorybookStore = create<MemorybookState>((set, get) => ({
   memorybooks: [],
   activeMemorybook: null,
   activeNotes: [],
+  studioArtifacts: [],
+  uiActiveStudioTab: 'audio',
   isLoading: false,
   error: null,
   isCreateModalOpen: false,
@@ -97,24 +150,28 @@ export const useMemorybookStore = create<MemorybookState>((set, get) => ({
 
   setCreateModalOpen: (open: boolean) => set({ isCreateModalOpen: open }),
   setAddSourceModalOpen: (open: boolean) => set({ isAddSourceModalOpen: open }),
+  setActiveStudioTab: (tab) => set({ uiActiveStudioTab: tab }),
 
   setActiveMemorybook: async (memorybook: Memorybook | null) => {
     if (!memorybook) {
-      set({ activeMemorybook: null, activeNotes: [] });
+      set({ activeMemorybook: null, activeNotes: [], studioArtifacts: [] });
       return;
     }
     set({ activeMemorybook: memorybook });
-    
-    // Fetch full detailed memorybook sources and notes when active memorybook changes
+
+    // Fetch full detailed memorybook sources, notes, and studio artifacts
+    // when active memorybook changes
     try {
-      const [detailedMemorybook, notesList] = await Promise.all([
+      const [detailedMemorybook, notesList, artifactsList] = await Promise.all([
         apiClient.get<any, Memorybook>(`/memorybooks/${memorybook.id}`),
         apiClient.get<any, Note[]>(`/memorybooks/${memorybook.id}/notes`),
+        apiClient.get<any, StudioArtifact[]>(`/memorybooks/${memorybook.id}/studio`),
       ]);
-      set({ activeMemorybook: detailedMemorybook, activeNotes: notesList });
-      // Resume polling if this memorybook has ingestion still in flight from a
-      // previous session (e.g. page reload mid-ingestion).
+      set({ activeMemorybook: detailedMemorybook, activeNotes: notesList, studioArtifacts: artifactsList });
+      // Resume polling if this memorybook has ingestion/generation still in
+      // flight from a previous session (e.g. page reload mid-process).
       ensureSourcePolling(get, set);
+      ensureStudioPolling(get, set);
     } catch (e) {
       // ignore
     }
@@ -130,21 +187,23 @@ export const useMemorybookStore = create<MemorybookState>((set, get) => ({
 
       if (nextActive) {
         try {
-          const [detailed, notesList] = await Promise.all([
+          const [detailed, notesList, artifactsList] = await Promise.all([
             apiClient.get<any, Memorybook>(`/memorybooks/${nextActive.id}`),
             apiClient.get<any, Note[]>(`/memorybooks/${nextActive.id}/notes`),
+            apiClient.get<any, StudioArtifact[]>(`/memorybooks/${nextActive.id}/studio`),
           ]);
           nextActive = detailed;
-          set({ activeNotes: notesList });
+          set({ activeNotes: notesList, studioArtifacts: artifactsList });
         } catch (e) {
           // ignore
         }
       }
 
       set({ memorybooks: data, activeMemorybook: nextActive, isLoading: false });
-      // Resume polling if the memorybook loaded on app start has ingestion
-      // still in flight from a previous session.
+      // Resume polling if the memorybook loaded on app start has
+      // ingestion/generation still in flight from a previous session.
       ensureSourcePolling(get, set);
+      ensureStudioPolling(get, set);
     } catch (err: any) {
       set({ error: err.message || 'Failed to fetch memorybooks', isLoading: false });
     }
@@ -267,7 +326,7 @@ export const useMemorybookStore = create<MemorybookState>((set, get) => ({
 
       return source;
     } catch (err: any) {
-      set({ error: err.message || 'Failed to ingest website URL via Firecrawl', isLoading: false });
+      set({ error: err.message || 'Failed to import website URL', isLoading: false });
       throw err;
     }
   },
@@ -381,6 +440,44 @@ export const useMemorybookStore = create<MemorybookState>((set, get) => ({
       set({ activeNotes: get().activeNotes.filter((n) => n.id !== noteId) });
     } catch (err: any) {
       set({ error: err.message || 'Failed to delete note' });
+      throw err;
+    }
+  },
+
+  // Studio Artifacts Implementation
+  fetchStudioArtifacts: async () => {
+    const active = get().activeMemorybook;
+    if (!active) return;
+    try {
+      const artifacts = await apiClient.get<any, StudioArtifact[]>(`/memorybooks/${active.id}/studio`);
+      set({ studioArtifacts: artifacts });
+    } catch (err: any) {
+      // ignore
+    }
+  },
+
+  generateStudioArtifact: async (kind: StudioArtifactKind) => {
+    const active = get().activeMemorybook;
+    if (!active) throw new Error('No active memorybook selected');
+    try {
+      const artifact = await apiClient.post<any, StudioArtifact>(`/memorybooks/${active.id}/studio/${kind}`);
+      set({ studioArtifacts: [artifact, ...get().studioArtifacts] });
+      ensureStudioPolling(get, set);
+      return artifact;
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to start generation' });
+      throw err;
+    }
+  },
+
+  deleteStudioArtifact: async (artifactId: string) => {
+    const active = get().activeMemorybook;
+    if (!active) throw new Error('No active memorybook selected');
+    try {
+      await apiClient.delete(`/memorybooks/${active.id}/studio/${artifactId}`);
+      set({ studioArtifacts: get().studioArtifacts.filter((a) => a.id !== artifactId) });
+    } catch (err: any) {
+      set({ error: err.message || 'Failed to delete studio artifact' });
       throw err;
     }
   },

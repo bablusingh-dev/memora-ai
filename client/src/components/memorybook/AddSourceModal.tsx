@@ -59,7 +59,7 @@ export function AddSourceModal() {
       await ingestWebsiteSource(webUrl.trim());
       setWebUrl('');
     } catch (err: any) {
-      setErrorMsg(err.message || 'Failed to scrape website via Firecrawl');
+      setErrorMsg(err.message || 'Failed to import website');
     }
   };
 
@@ -104,7 +104,7 @@ export function AddSourceModal() {
             Add Source Document
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground leading-relaxed">
-            Ground your workspace in factual context. Added sources are stored on Cloudinary & indexed into ParadeDB for BM25 RAG.
+            Ground your workspace in factual context. Sources are securely stored and indexed for search.
           </DialogDescription>
         </DialogHeader>
 
@@ -165,7 +165,7 @@ export function AddSourceModal() {
                       {selectedFile ? selectedFile.name : 'Click to select or drag PDF/Docs here'}
                     </p>
                     <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">
-                      PDF, DOCX, TXT up to 25MB (Uploaded to Cloudinary CDN)
+                      PDF, DOCX, TXT up to 25MB
                     </p>
                   </div>
                 </div>
@@ -177,7 +177,7 @@ export function AddSourceModal() {
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-10 rounded-2xl border-0 shadow-xs gap-2"
               >
                 {isLoading ? <Loader2 className="w-4 h-4" /> : null}
-                <span>Upload to Cloudinary & Index</span>
+                <span>Upload & Index</span>
               </Button>
             </form>
           </TabsContent>
@@ -186,7 +186,7 @@ export function AddSourceModal() {
           <TabsContent value="web" className="pt-3">
             <form onSubmit={handleWebIngest} className="bg-white dark:bg-zinc-950 p-4 rounded-2xl shadow-2xs space-y-4">
               <div className="space-y-1.5">
-                <label className="text-xs font-semibold text-foreground">Website URL (Firecrawl Scraper)</label>
+                <label className="text-xs font-semibold text-foreground">Website URL</label>
                 <Input
                   placeholder="https://example.com/research-paper"
                   value={webUrl}
@@ -195,7 +195,7 @@ export function AddSourceModal() {
                   className="bg-slate-100 dark:bg-zinc-800/90 border-0 text-foreground placeholder:text-muted-foreground text-xs h-10 rounded-2xl focus-visible:ring-1 focus-visible:ring-primary shadow-inner"
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Firecrawl converts webpage HTML into clean Markdown for high-quality chunking.
+                  We'll pull in the page's article content for grounding.
                 </p>
               </div>
 
@@ -223,7 +223,7 @@ export function AddSourceModal() {
                   className="bg-slate-100 dark:bg-zinc-800/90 border-0 text-foreground placeholder:text-muted-foreground text-xs h-10 rounded-2xl focus-visible:ring-1 focus-visible:ring-primary shadow-inner"
                 />
                 <p className="text-[11px] text-muted-foreground">
-                  Extracts video transcript and metadata for ParadeDB RAG indexing.
+                  We'll fetch the video's transcript for grounding.
                 </p>
               </div>
 

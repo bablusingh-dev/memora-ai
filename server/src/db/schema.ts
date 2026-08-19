@@ -119,6 +119,22 @@ export const notes = pgTable('notes', {
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
 });
 
+export const studioArtifacts = pgTable('studio_artifacts', {
+  id: uuid('id').defaultRandom().primaryKey(),
+  memorybookId: uuid('memorybook_id')
+    .references(() => memorybooks.id, { onDelete: 'cascade' })
+    .notNull(),
+  kind: text('kind').notNull(), // 'flashcards' (extend as new Studio output kinds ship)
+  title: text('title').notNull(),
+  status: text('status').default('generating').notNull(), // 'generating' | 'ready' | 'error'
+  errorMessage: text('error_message'),
+  // Kind-specific structured content, e.g. { cards: [{front, back}] } for
+  // flashcards. Null until status = 'ready'.
+  payload: jsonb('payload'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
+  updatedAt: timestamp('updated_at').defaultNow().notNull(),
+});
+
 export const chatMessages = pgTable('chat_messages', {
   id: uuid('id').defaultRandom().primaryKey(),
   memorybookId: uuid('memorybook_id')

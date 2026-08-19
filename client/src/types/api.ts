@@ -54,6 +54,25 @@ export interface Memorybook {
   notes?: Note[];
 }
 
+export type StudioArtifactKind = 'flashcards';
+
+export interface FlashcardsPayload {
+  cards: { front: string; back: string }[];
+}
+
+export interface StudioArtifact {
+  id: string;
+  memorybookId: string;
+  kind: StudioArtifactKind;
+  title: string;
+  status: 'generating' | 'ready' | 'error';
+  errorMessage?: string | null;
+  /** Kind-specific structured content. Null until status is 'ready'. */
+  payload: FlashcardsPayload | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface DocumentChunk {
   id: string;
   sourceId: string;

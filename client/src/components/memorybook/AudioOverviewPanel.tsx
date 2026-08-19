@@ -19,6 +19,7 @@ import {
   ListTodo,
   Share2,
   Search,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -27,6 +28,9 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
 import { useMemorybookStore } from '@/store/useMemorybookStore';
+import { StudioArtifact } from '@/types/api';
+import { StudioArtifactCard } from '@/components/memorybook/studio/StudioArtifactCard';
+import { FlashcardViewer } from '@/components/memorybook/studio/FlashcardViewer';
 import {
   Dialog,
   DialogContent,
@@ -36,8 +40,17 @@ import {
 } from '@/components/ui/dialog';
 
 export function AudioOverviewPanel() {
-  const { activeMemorybook, activeNotes, createNote, deleteNote } = useMemorybookStore();
-  const [activeTab, setActiveTab] = useState('audio');
+  const {
+    activeMemorybook,
+    activeNotes,
+    createNote,
+    deleteNote,
+    studioArtifacts,
+    generateStudioArtifact,
+    deleteStudioArtifact,
+    uiActiveStudioTab: activeTab,
+    setActiveStudioTab: setActiveTab,
+  } = useMemorybookStore();
 
   // Note Modal States
   const [isCreateNoteOpen, setCreateNoteOpen] = useState(false);
@@ -52,6 +65,23 @@ export function AudioOverviewPanel() {
   const [playbackProgress, setPlaybackProgress] = useState(25);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const speeds = [1.0, 1.25, 1.5, 2.0];
+
+  // Studio artifact generation/viewing state
+  const [selectedArtifact, setSelectedArtifact] = useState<StudioArtifact | null>(null);
+  const [isGeneratingFlashcards, setIsGeneratingFlashcards] = useState(false);
+  const isFlashcardsGenerating = isGeneratingFlashcards || studioArtifacts.some((a) => a.kind === 'flashcards' && a.status === 'generating');
+
+  const handleGenerateFlashcards = async () => {
+    if (!activeMemorybook || isFlashcardsGenerating) return;
+    setIsGeneratingFlashcards(true);
+    try {
+      await generateStudioArtifact('flashcards');
+    } catch (e) {
+      // error surfaced via store's error state / the card's own status
+    } finally {
+      setIsGeneratingFlashcards(false);
+    }
+  };
 
   const handleCreateNote = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,7 +142,11 @@ export function AudioOverviewPanel() {
       </div>
 
       {/* Main Tabs: Audio | Studio Generators | Notes */}
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full flex-1 flex flex-col min-h-0">
+      <Tabs
+        value={activeTab}
+        onValueChange={(value) => setActiveTab(value as 'audio' | 'studio' | 'notes')}
+        className="w-full flex-1 flex flex-col min-h-0"
+      >
         <TabsList className="grid grid-cols-3 w-full bg-background/80 dark:bg-zinc-900/80 p-1 rounded-2xl border-0 shrink-0 shadow-2xs">
           <TabsTrigger
             value="audio"
@@ -221,7 +255,7 @@ export function AudioOverviewPanel() {
                   generateAIArtifact(
                     'ai_summary',
                     'Audio Overview Transcript',
-                    `# Audio Overview Transcript for ${activeMemorybook?.title || 'Workspace'}\n\n- Host A: Welcome back to Memorybook Studio.\n- Host B: Today we are examining the core principles of vectorless BM25 search vs dense embeddings.\n- Key takeaways: ParadeDB provides exact BM25 keyword precision.`
+                    `# Audio Overview Transcript for ${activeMemorybook?.title || 'Workspace'}\n\n- Host A: Welcome back to Memorybook Studio.\n- Host B: Today we are examining the core themes across your uploaded sources.\n- Key takeaways: your workspace is grounded in exact, citable evidence from what you've added.`
                   )
                 }
                 className="h-8 w-8 text-muted-foreground hover:text-foreground"
@@ -239,7 +273,7 @@ export function AudioOverviewPanel() {
               generateAIArtifact(
                 'ai_summary',
                 `Executive Briefing - ${new Date().toLocaleDateString()}`,
-                `# Executive Briefing: ${activeMemorybook?.title}\n\n### Key Synthesized Themes:\n1. **Grounded Multi-Document Context**: Real-time integration of PDFs, Web scrapings, and YouTube transcripts.\n2. **ParadeDB BM25 Precision**: Hybrid vectorless retrieval for deterministic term matching.\n3. **Clerk Express Multi-Tenant Security**: Enforced session tokens.`
+                `# Executive Briefing: ${activeMemorybook?.title}\n\n### Key Synthesized Themes:\n1. **Grounded Multi-Document Context**: Real-time integration of PDFs, web pages, and YouTube transcripts.\n2. **Precise, Cited Retrieval**: Every answer traces back to exact passages in your sources.\n3. **Private by Default**: Your workspace and its contents stay isolated to your account.`
               )
             }
             className="w-full justify-center space-x-2 bg-background/80 hover:bg-background text-foreground text-xs h-9 rounded-2xl border-0 font-semibold shadow-2xs"
@@ -255,38 +289,58 @@ export function AudioOverviewPanel() {
           className="mt-0 pt-3 flex-1 flex flex-col min-h-0 space-y-2 overflow-y-auto outline-none data-[state=inactive]:hidden"
         >
           <p className="text-xs text-muted-foreground mb-1">
-            One-click AI synthesis tools based on workspace sources:
+            AI synthesis tools based on your workspace sources:
           </p>
 
           <Card
-            onClick={() =>
-              generateAIArtifact(
-                'study_guide',
-                'Comprehensive Study Guide',
-                `# Study Guide: ${activeMemorybook?.title || 'Workspace'}\n\n### Core Concepts:\n- **BM25 Scoring**: Evaluates term frequency and inverse document frequency.\n- **Firecrawl**: Transforms complex Web HTML into clean Markdown.\n- **Svix Webhook Handling**: Ensures zero-latency user synchronization.`
-              )
-            }
-            className="bg-background/90 dark:bg-card hover:bg-background transition-colors duration-150 cursor-pointer border-0 shadow-2xs rounded-2xl p-3 flex items-center space-x-3"
+            onClick={handleGenerateFlashcards}
+            className={`bg-background/90 dark:bg-card border-0 shadow-2xs rounded-2xl p-3 flex items-center space-x-3 transition-all duration-150 ${
+              !activeMemorybook || isFlashcardsGenerating
+                ? 'opacity-60 cursor-not-allowed'
+                : 'hover:bg-background cursor-pointer hover:scale-[1.01] active:scale-[0.99]'
+            }`}
           >
+            <div className="p-2 rounded-xl bg-violet-500/10 text-violet-500 shrink-0">
+              {isFlashcardsGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Layers className="w-4 h-4" />}
+            </div>
+            <div>
+              <h4 className="text-xs font-bold text-foreground">Flashcards</h4>
+              <p className="text-[10px] text-muted-foreground">
+                {isFlashcardsGenerating ? 'Generating your deck…' : 'Study cards generated from your sources'}
+              </p>
+            </div>
+          </Card>
+
+          {studioArtifacts.filter((a) => a.kind === 'flashcards').length > 0 && (
+            <div className="space-y-2 pt-1">
+              {studioArtifacts
+                .filter((a) => a.kind === 'flashcards')
+                .map((artifact) => (
+                  <StudioArtifactCard
+                    key={artifact.id}
+                    artifact={artifact}
+                    onOpen={() => setSelectedArtifact(artifact)}
+                    onDelete={() => deleteStudioArtifact(artifact.id)}
+                  />
+                ))}
+            </div>
+          )}
+
+          <p className="text-[10px] text-muted-foreground/70 pt-3 pb-1 uppercase tracking-wide font-semibold">
+            Coming soon
+          </p>
+
+          <div className="opacity-50 grayscale bg-background/60 dark:bg-card/50 border border-dashed border-muted-foreground/25 rounded-2xl p-3 flex items-center space-x-3 cursor-not-allowed">
             <div className="p-2 rounded-xl bg-blue-500/10 text-blue-500 shrink-0">
               <BookOpen className="w-4 h-4" />
             </div>
             <div>
               <h4 className="text-xs font-bold text-foreground">Study Guide</h4>
-              <p className="text-[10px] text-muted-foreground">Key concepts, definitions, & flashcards</p>
+              <p className="text-[10px] text-muted-foreground">Key concepts & definitions</p>
             </div>
-          </Card>
+          </div>
 
-          <Card
-            onClick={() =>
-              generateAIArtifact(
-                'faq',
-                'Frequently Asked Questions',
-                `# FAQ: ${activeMemorybook?.title || 'Workspace'}\n\n**Q: How does ParadeDB handle search?**\n*A: ParadeDB uses Postgres-native BM25 index extension via pg_search syntax.*\n\n**Q: How are YouTube videos ingested?**\n*A: YouTube video IDs are passed to the backend transcript API for text extraction.*`
-              )
-            }
-            className="bg-background/90 dark:bg-card hover:bg-background transition-colors duration-150 cursor-pointer border-0 shadow-2xs rounded-2xl p-3 flex items-center space-x-3"
-          >
+          <div className="opacity-50 grayscale bg-background/60 dark:bg-card/50 border border-dashed border-muted-foreground/25 rounded-2xl p-3 flex items-center space-x-3 cursor-not-allowed">
             <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500 shrink-0">
               <HelpCircle className="w-4 h-4" />
             </div>
@@ -294,18 +348,9 @@ export function AudioOverviewPanel() {
               <h4 className="text-xs font-bold text-foreground">FAQ Document</h4>
               <p className="text-[10px] text-muted-foreground">Most common questions answered</p>
             </div>
-          </Card>
+          </div>
 
-          <Card
-            onClick={() =>
-              generateAIArtifact(
-                'timeline',
-                'Project & Concept Timeline',
-                `# Concept Timeline: ${activeMemorybook?.title || 'Workspace'}\n\n- **Phase 1**: Database schema design & Drizzle ORM setup.\n- **Phase 2**: Clerk authentication integration & Express Middleware.\n- **Phase 3**: RAG pipeline & ParadeDB BM25 query construction.`
-              )
-            }
-            className="bg-background/90 dark:bg-card hover:bg-background transition-colors duration-150 cursor-pointer border-0 shadow-2xs rounded-2xl p-3 flex items-center space-x-3"
-          >
+          <div className="opacity-50 grayscale bg-background/60 dark:bg-card/50 border border-dashed border-muted-foreground/25 rounded-2xl p-3 flex items-center space-x-3 cursor-not-allowed">
             <div className="p-2 rounded-xl bg-amber-500/10 text-amber-500 shrink-0">
               <Clock className="w-4 h-4" />
             </div>
@@ -313,7 +358,7 @@ export function AudioOverviewPanel() {
               <h4 className="text-xs font-bold text-foreground">Timeline Outline</h4>
               <p className="text-[10px] text-muted-foreground">Chronological sequence of events</p>
             </div>
-          </Card>
+          </div>
         </TabsContent>
 
         {/* TAB 3: WORKSPACE NOTES */}
@@ -382,6 +427,25 @@ export function AudioOverviewPanel() {
           </div>
         </TabsContent>
       </Tabs>
+
+      {/* Studio Artifact Viewer Dialog */}
+      <Dialog open={!!selectedArtifact} onOpenChange={() => setSelectedArtifact(null)}>
+        <DialogContent className="sm:max-w-[440px] border-0 bg-slate-100 dark:bg-zinc-900 ring-1 ring-black/5 dark:ring-white/10 shadow-2xl dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.95)] text-foreground rounded-3xl p-5 space-y-3">
+          <DialogHeader className="bg-white dark:bg-zinc-950 p-4 rounded-2xl shadow-2xs">
+            <DialogTitle className="flex items-center gap-2 text-sm font-bold text-foreground">
+              <Layers className="w-4 h-4 text-primary" />
+              <span className="truncate">{selectedArtifact?.title}</span>
+            </DialogTitle>
+            <DialogDescription className="text-[11px] text-muted-foreground mt-0.5">
+              {selectedArtifact?.payload?.cards.length ?? 0} cards, generated from your sources
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="p-4 rounded-2xl bg-white dark:bg-zinc-950 shadow-2xs">
+            {selectedArtifact?.payload && <FlashcardViewer payload={selectedArtifact.payload} />}
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Note View Dialog */}
       <Dialog open={!!selectedNote} onOpenChange={() => setSelectedNote(null)}>

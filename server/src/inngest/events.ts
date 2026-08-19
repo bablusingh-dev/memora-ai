@@ -104,3 +104,17 @@ export const chatMessageCompleted = eventType('chat/message.completed', {
     assistantReply: z.string(),
   }),
 });
+
+// ---------------------------------------------------------------------------
+// Phase 5 — Studio artifact generation (Flashcards, and future output kinds)
+// ---------------------------------------------------------------------------
+
+export const studioArtifactRequested = eventType('studio/artifact.requested', {
+  schema: z.object({
+    artifactId: z.string().uuid(),
+    memorybookId: z.string().uuid(),
+    userId: z.string().min(1),
+    // Extend one value at a time as new Studio output kinds ship.
+    kind: z.enum(['flashcards']),
+  }),
+});

@@ -145,6 +145,21 @@ export async function connectDB() {
           END;
         END IF;
 
+        IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'memorybooks') THEN
+          CREATE TABLE IF NOT EXISTS studio_artifacts (
+            id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+            memorybook_id UUID NOT NULL REFERENCES memorybooks(id) ON DELETE CASCADE,
+            kind TEXT NOT NULL,
+            title TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'generating',
+            error_message TEXT,
+            payload JSONB,
+            created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMP NOT NULL DEFAULT NOW()
+          );
+          CREATE INDEX IF NOT EXISTS idx_studio_artifacts_memorybook_id ON studio_artifacts(memorybook_id);
+        END IF;
+
         IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'source_documents') THEN
           ALTER TABLE source_documents ADD COLUMN IF NOT EXISTS content_hash TEXT;
           ALTER TABLE source_documents ADD COLUMN IF NOT EXISTS error_message TEXT;

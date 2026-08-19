@@ -18,7 +18,7 @@ const isValidClerkKey =
 
 const upcoming = [
   { icon: Network, label: 'Mind maps' },
-  { icon: ListChecks, label: 'Flashcard decks' },
+  { icon: ListChecks, label: 'Quizzes' },
   { icon: Users, label: 'Shared workspaces' },
 ];
 

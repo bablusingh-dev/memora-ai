@@ -10,6 +10,7 @@ import {
 import sourceRoutes from './source.routes.js';
 import chatRoutes from './chat.routes.js';
 import noteRoutes from './note.routes.js';
+import studioRoutes from './studio.routes.js';
 import { requireAuthMiddleware } from '../middlewares/auth.middleware.js';
 import { validateRequest } from '../middlewares/validate.middleware.js';
 import { uuidParamSchema, createMemorybookSchema, updateMemorybookSchema } from '../validators/index.js';
@@ -35,5 +36,8 @@ router.use('/:memorybookId/messages', chatRoutes);
 
 // Nested Notes Routes (/api/v1/memorybooks/:memorybookId/notes)
 router.use('/:memorybookId/notes', noteRoutes);
+
+// Nested Studio Artifact Routes (/api/v1/memorybooks/:memorybookId/studio)
+router.use('/:memorybookId/studio', studioRoutes);
 
 export default router;

@@ -62,6 +62,19 @@ import {
 import { CodeBlock } from '@/components/ai-elements/code-block';
 import { PromptInput } from '@/components/ai-elements/PromptInput';
 
+/**
+ * Human-readable label/description for each agent tool call, keyed by the
+ * tool's actual registered name (see server/src/services/agent.service.ts).
+ * Keeps the chain-of-thought timeline free of raw internal tool/vendor names.
+ */
+const TOOL_STEP_LABELS: Record<string, { label: string; description: string }> = {
+  searchKnowledgeBase: { label: 'Searching sources', description: 'Searched your sources' },
+  queryKnowledgeGraph: { label: 'Checking connections', description: 'Looked up related concepts' },
+  createMemorybookNote: { label: 'Saving note', description: 'Saved a note to your workspace' },
+  searchWeb: { label: 'Searching the web', description: 'Looked up additional context online' },
+  browseWebPage: { label: 'Reading a page', description: 'Read a web page for more detail' },
+};
+
 function CopyMessageButton({ text }: { text: string }) {
   const [copied, setCopied] = useState(false);
 
@@ -319,7 +332,7 @@ function ChatStreamView({ memorybookId }: { memorybookId: string }) {
                 <Database className="w-4 h-4 text-primary" />
                 <span>Source Citation</span>
                 <Badge variant="secondary" className="font-mono text-[10px] text-primary bg-primary/10 border-0">
-                  BM25
+                  Cited
                 </Badge>
               </DialogTitle>
               <DialogDescription className="text-xs text-muted-foreground flex items-center gap-2 mt-1">
@@ -452,7 +465,7 @@ function ChatStreamView({ memorybookId }: { memorybookId: string }) {
               for (const tp of toolParts) {
                 const toolName = tp.toolName || tp.type?.replace('tool-', '');
                 const output = tp.output || tp.result;
-                if (toolName === 'searchParadeDB' && Array.isArray(output?.results)) {
+                if (toolName === 'searchKnowledgeBase' && Array.isArray(output?.results)) {
                   output.results.forEach((r: any) => {
                     extractedSources.push({
                       title: `Chunk #${(r.chunkIndex ?? 0) + 1}`,
@@ -494,12 +507,13 @@ function ChatStreamView({ memorybookId }: { memorybookId: string }) {
                             <ChainOfThoughtContent>
                               {toolParts.map((tp: any, tIdx: number) => {
                                 const toolName = tp.toolName || tp.type?.replace('tool-', '');
+                                const step = TOOL_STEP_LABELS[toolName] || { label: 'Working', description: 'Processing your request' };
                                 return (
                                   <ChainOfThoughtStep
                                     key={tIdx}
                                     icon={Database}
-                                    label={<span className="font-semibold">{toolName}</span>}
-                                    description="ParadeDB BM25 query executed"
+                                    label={<span className="font-semibold">{step.label}</span>}
+                                    description={step.description}
                                   />
                                 );
                               })}
@@ -563,7 +577,7 @@ function ChatStreamView({ memorybookId }: { memorybookId: string }) {
                             />
                           </div>
                           <span className="text-[10px] text-muted-foreground font-mono">
-                            Grounded • ParadeDB
+                            Grounded in your sources
                           </span>
                         </div>
                       </Card>

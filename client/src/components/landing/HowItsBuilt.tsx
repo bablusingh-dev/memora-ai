@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Cpu, Database, GitBranch, KeyRound, Globe2 } from 'lucide-react';
+import { Cpu, Search, ShieldCheck, Lock, Globe2 } from 'lucide-react';
 import { Container } from '@/components/landing/shared/Container';
 import { SectionHeading } from '@/components/landing/shared/SectionHeading';
 import { Reveal } from '@/components/landing/shared/Reveal';
@@ -9,28 +9,28 @@ import { Reveal } from '@/components/landing/shared/Reveal';
 const stack = [
   {
     icon: Cpu,
-    name: 'Next.js 16',
-    detail: 'App Router frontend with streaming AI responses',
+    name: 'Fast, modern interface',
+    detail: 'Streaming AI responses as you type',
   },
   {
-    icon: Database,
-    name: 'ParadeDB BM25',
-    detail: 'Full-text grounding directly in Postgres — no vector drift',
+    icon: Search,
+    name: 'Full-text + semantic search',
+    detail: 'Grounded answers, not guesses',
   },
   {
-    icon: GitBranch,
-    name: 'Drizzle ORM',
-    detail: 'Type-safe schema and queries end to end',
+    icon: ShieldCheck,
+    name: 'Reliable by design',
+    detail: 'Type-safe data layer end to end',
   },
   {
-    icon: KeyRound,
-    name: 'Clerk Auth',
-    detail: 'Multi-tenant sessions, isolated by user',
+    icon: Lock,
+    name: 'Secure, multi-tenant accounts',
+    detail: 'Your workspaces stay isolated',
   },
   {
     icon: Globe2,
-    name: 'Firecrawl',
-    detail: 'Clean web crawling, turned into Markdown',
+    name: 'Clean web import',
+    detail: 'Any page, turned into readable source material',
   },
 ];
 
@@ -42,10 +42,10 @@ export function HowItsBuilt() {
       <Container>
         <Reveal>
           <SectionHeading
-            eyebrow="How it's built"
+            eyebrow="What powers your workspace"
             eyebrowIcon={Cpu}
-            title="A production-grade stack under the hood"
-            description="Nothing about how it works is hidden — here's what actually powers the workspace."
+            title="Built for real research work"
+            description="Everything you need to actually get work done."
           />
         </Reveal>
       </Container>
