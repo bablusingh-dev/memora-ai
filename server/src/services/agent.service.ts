@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { env } from '../config/env.js';
 import { MemorybookRepository } from '../repositories/memorybook.repository.js';
 import { ChatRepository } from '../repositories/chat.repository.js';
+import { UserRepository } from '../repositories/user.repository.js';
 import { MemoryCoordinatorService } from './memory/memory-coordinator.service.js';
 import { ContextBuilderService } from './context-builder.service.js';
 import { GraphFactory } from '../providers/graph/graph.factory.js';
@@ -18,10 +19,12 @@ import { embeddingService } from './embedding.service.js';
 import { inngest } from '../inngest/client.js';
 import { chatMessageCompleted } from '../inngest/events.js';
 import { BadRequestError, TooManyRequestsError } from '../utils/api-error.js';
+import { isChitChatQuery } from '../utils/chit-chat.js';
 
 export class AgentService {
   private memorybookRepo: MemorybookRepository;
   private chatRepo: ChatRepository;
+  private usersRepo: UserRepository;
   private memoryCoordinator: MemoryCoordinatorService;
   private contextBuilder: ContextBuilderService;
   private firecrawlService: FirecrawlService;
@@ -41,6 +44,7 @@ export class AgentService {
   constructor() {
     this.memorybookRepo = new MemorybookRepository();
     this.chatRepo = new ChatRepository();
+    this.usersRepo = new UserRepository();
     this.memoryCoordinator = new MemoryCoordinatorService();
     this.contextBuilder = new ContextBuilderService();
     this.firecrawlService = new FirecrawlService();
@@ -108,7 +112,19 @@ export class AgentService {
   ) {
     const isWebSearchEnabled = Boolean(options.enableWebSearch);
 
-    const memorybook = await this.memorybookRepo.findById(memorybookId, userId);
+    // The user's identity is a single indexed Postgres lookup by primary
+    // key — no LLM, no mem0 call — so it costs ~nothing to always fetch
+    // alongside the memorybook lookup, whether this turn is chit-chat or
+    // not. Deliberately separate from the [USER PROFILE] mem0 bio below
+    // (which is LLM-extracted from past conversation and empty until
+    // enough history accumulates): firstName is known from message one.
+    const [memorybook, userProfile] = await Promise.all([
+      this.memorybookRepo.findById(memorybookId, userId),
+      this.usersRepo.findById(userId).catch((error) => {
+        logger.error({ error, userId }, 'Failed to fetch user profile for chat personalization');
+        return null;
+      }),
+    ]);
     if (!memorybook) throw new BadRequestError(`Memorybook '${memorybookId}' not found or access denied`);
 
     if (!env.OPENAI_API_KEY || env.OPENAI_API_KEY === 'sk-placeholder') {
@@ -154,6 +170,20 @@ export class AgentService {
     // sequentially, adding the enhancement call's latency to every turn even
     // though most of retrieval didn't depend on its output.
     const modelHistory = this.convertToModelMessages(messages);
+
+    // Chit-chat (greetings, thanks, "who are you", ...) has nothing for
+    // document/graph retrieval to find, so skip that whole stage rather
+    // than just the enhancement call — queryEnhancer.enhanceQuery already
+    // short-circuits internally for the same detector (see
+    // query-enhancer.service.ts), this additionally skips
+    // retrieveQueryDependentMemories itself to avoid paying its BM25/vector/
+    // graph query cost for nothing. CONVERSATION + mem0 (the independent
+    // layer) still run — those are needed for continuity even in a
+    // greeting-only turn ("no I meant X" callbacks, personalization, etc.).
+    // If this guess is ever wrong, the agent's searchKnowledgeBase /
+    // queryKnowledgeGraph tools are still available as a fallback.
+    const isChitChat = isChitChatQuery(userQuery);
+
     const [enhanced, independentMemories] = await Promise.all([
       queryEnhancer.enhanceQuery(userQuery, modelHistory),
       this.memoryCoordinator.retrieveQueryIndependentMemories(memorybookId, userId, userQuery),
@@ -171,11 +201,13 @@ export class AgentService {
     // 3. DOCUMENT/GRAPH layers — need the corrected+expanded query, so these
     // wait for query enhancement to finish (see retrieveQueryDependentMemories's
     // doc comment for why this split is safe/correct).
-    const dependentMemories = await this.memoryCoordinator.retrieveQueryDependentMemories(
-      memorybookId,
-      queryForSearch,
-      enhanced.expandedKeywords || []
-    );
+    const dependentMemories = isChitChat
+      ? { graphResult: { entities: [], relations: [] }, knowledgeChunks: [] }
+      : await this.memoryCoordinator.retrieveQueryDependentMemories(
+          memorybookId,
+          queryForSearch,
+          enhanced.expandedKeywords || []
+        );
     const memoryBundle = this.memoryCoordinator.buildBundle(memorybookId, userId, queryForSearch, independentMemories, dependentMemories);
 
     // Record trace data
@@ -220,6 +252,7 @@ export class AgentService {
     const systemPrompt = `You are Memorybook, an intelligent, grounded research assistant.
 Your goal is to answer the user's questions accurately using facts from their memorybook source documents and memory.
 
+${userProfile?.firstName ? `\nThe user's name is ${userProfile.firstName}. Greet them by name when it feels natural (e.g. the first message of a session) — don't force it into every reply.\n` : ''}
 ${formattedContext.userProfileContext ? `\n${formattedContext.userProfileContext}\n` : ''}
 ${formattedContext.proceduralContext ? `\n${formattedContext.proceduralContext}\n` : ''}
 
@@ -432,6 +465,13 @@ INSTRUCTIONS:
     return result;
   }
 
+  // UI-only structural markers the AI SDK's useChat inserts into message
+  // history on every turn (e.g. a 'step-start' part between agent steps).
+  // They carry no content of their own, so dropping them here is expected
+  // and not worth a warning — only warn when a part that could actually
+  // carry user/model content (images, files, etc.) gets silently discarded.
+  private static readonly BENIGN_NON_TEXT_PART_TYPES = new Set(['step-start']);
+
   private convertToModelMessages(uiMessages: any[]): any[] {
     return uiMessages
       .map((msg) => {
@@ -441,10 +481,13 @@ INSTRUCTIONS:
           content = msg.content;
         } else if (Array.isArray(msg.parts)) {
           const nonTextParts = msg.parts.filter((p: any) => p.type !== 'text');
-          if (nonTextParts.length > 0) {
+          const droppedContentParts = nonTextParts.filter(
+            (p: any) => !AgentService.BENIGN_NON_TEXT_PART_TYPES.has(p.type)
+          );
+          if (droppedContentParts.length > 0) {
             logger.warn(
-              { role, droppedPartTypes: nonTextParts.map((p: any) => p.type) },
-              'convertToModelMessages: dropping non-text message part(s) — multimodal content is not yet forwarded to the model'
+              { role, droppedPartTypes: droppedContentParts.map((p: any) => p.type) },
+              'convertToModelMessages: dropping non-text message part(s) - multimodal content is not yet forwarded to the model'
             );
           }
           content = msg.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text as string).join('');

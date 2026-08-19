@@ -8,6 +8,13 @@ const { Pool } = pg;
 
 export const pool = new Pool({
   connectionString: env.DATABASE_URL,
+  // Keep a few connections warm so a chat turn's parallel retrieval queries
+  // (doc search, graph search, mem0, chat history, ...) don't have to pay a
+  // fresh TCP+auth handshake per connection every time the pool goes idle
+  // between requests. Default idleTimeoutMillis (10s) was shorter than the
+  // typical gap between chat turns, so every message reopened ~6 connections.
+  min: 2,
+  idleTimeoutMillis: 60_000,
 });
 
 pool.on('connect', () => {

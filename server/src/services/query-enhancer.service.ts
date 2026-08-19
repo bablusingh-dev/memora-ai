@@ -3,6 +3,7 @@ import { createOpenAI } from '@ai-sdk/openai';
 import { z } from 'zod';
 import { env } from '../config/env.js';
 import { logger } from '../utils/logger.js';
+import { isChitChatQuery } from '../utils/chit-chat.js';
 
 const QueryEnhancementSchema = z.object({
   correctedQuery: z
@@ -57,6 +58,21 @@ export class QueryEnhancerService {
         rawQuery: trimmed,
         correctedQuery: trimmed,
         expandedKeywords: [trimmed],
+        intentSummary: trimmed,
+        searchTerms: [trimmed],
+      };
+    }
+
+    // Chit-chat (greetings, thanks, "who are you", ...) has nothing worth
+    // spell-correcting or expanding into BM25 keywords — skip the LLM round
+    // trip entirely. agent.service.ts uses the same detector to also skip
+    // document/graph retrieval for these turns; see chit-chat.ts.
+    if (isChitChatQuery(trimmed)) {
+      logger.info({ rawQuery: trimmed }, '[QueryEnhancer] Chit-chat detected — skipping enhancement LLM call');
+      return {
+        rawQuery: trimmed,
+        correctedQuery: trimmed,
+        expandedKeywords: [],
         intentSummary: trimmed,
         searchTerms: [trimmed],
       };

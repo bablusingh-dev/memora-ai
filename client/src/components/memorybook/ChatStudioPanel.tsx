@@ -136,6 +136,46 @@ function SaveNoteButton({ title, text }: { title: string; text: string }) {
   );
 }
 
+// Cycles through these while we're waiting on the server — query
+// enhancement + multi-layer retrieval (BM25/vector/graph/mem0) + the model's
+// own time-to-first-token genuinely take a few seconds, so this keeps the
+// wait feeling like active progress instead of a frozen UI. Purely cosmetic:
+// it doesn't know the server's actual stage, just approximates it by timing.
+const THINKING_PHASES = [
+  'Understanding your question…',
+  'Searching your sources…',
+  'Consulting the knowledge graph…',
+  'Composing an answer…',
+];
+
+function ThinkingIndicator() {
+  const [phase, setPhase] = useState(0);
+
+  useEffect(() => {
+    setPhase(0);
+    const interval = setInterval(() => {
+      setPhase((p) => Math.min(p + 1, THINKING_PHASES.length - 1));
+    }, 1400);
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="flex gap-3 text-xs justify-start">
+      <Avatar className="w-7 h-7 bg-primary/10 text-primary border-0 shrink-0 mt-0.5">
+        <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
+          AI
+        </AvatarFallback>
+      </Avatar>
+      <Card className="bg-card border-0 shadow-2xs rounded-3xl px-4 py-3">
+        <div className="flex items-center gap-2 text-muted-foreground font-medium">
+          <Loader2 className="w-3.5 h-3.5 animate-spin text-primary" />
+          <span>{THINKING_PHASES[phase]}</span>
+        </div>
+      </Card>
+    </div>
+  );
+}
+
 function ChatStreamView({ memorybookId }: { memorybookId: string }) {
   const [selectedCitation, setSelectedCitation] = useState<any | null>(null);
   const [inputValue, setInputValue] = useState('');
@@ -390,7 +430,8 @@ function ChatStreamView({ memorybookId }: { memorybookId: string }) {
               </div>
             </div>
           ) : (
-            messages.map((message: any, idx: number) => {
+            <>
+            {messages.map((message: any, idx: number) => {
               const messageText = message.content
                 ? message.content
                 : (message.parts as any[])
@@ -538,7 +579,9 @@ function ChatStreamView({ memorybookId }: { memorybookId: string }) {
                   )}
                 </div>
               );
-            })
+            })}
+            {status === 'submitted' && <ThinkingIndicator />}
+            </>
           )}
         </div>
 
