@@ -1,5 +1,6 @@
 import { embed, embedMany } from 'ai';
 import { createOpenAI } from '@ai-sdk/openai';
+import { getEncoding } from 'js-tiktoken';
 import { env } from '../config/env.js';
 import { logger } from '../utils/logger.js';
 
@@ -12,6 +13,30 @@ const EMBEDDING_MODEL_ID = 'text-embedding-3-small';
 // batch conservatively so a single failed/retried batch (Inngest step) never
 // covers more than a small, fast slice of a large ingestion.
 const BATCH_SIZE = 96;
+
+// text-embedding-3-small hard-rejects any single input over 8192 tokens —
+// and since embedMany sends a whole batch as one request, one oversized
+// chunk fails every other chunk in that batch too, not just itself.
+//
+// Truncation is done with the real cl100k_base tokenizer, not a char/4
+// heuristic: chunking.service.ts's heuristic is fine for its purpose (sizing
+// chunks so they read naturally), but it silently undercounts for dense or
+// degenerate text — repeated symbols, garbled PDF-extraction artifacts,
+// non-English text, long digit runs — which is exactly the kind of content
+// that ends up oversized in the first place. A char-count truncation on such
+// text can still leave >8192 actual tokens, which is what kept failing here.
+const encoding = getEncoding('cl100k_base');
+const MAX_EMBEDDING_INPUT_TOKENS = 8000; // headroom under the API's hard 8192 cap
+
+function truncateForEmbedding(text: string): string {
+  const tokens = encoding.encode(text);
+  if (tokens.length <= MAX_EMBEDDING_INPUT_TOKENS) return text;
+  logger.warn(
+    { originalTokens: tokens.length, truncatedTokens: MAX_EMBEDDING_INPUT_TOKENS },
+    '[EmbeddingService] Input exceeds embedding model token limit — truncating before embedding'
+  );
+  return encoding.decode(tokens.slice(0, MAX_EMBEDDING_INPUT_TOKENS));
+}
 
 /**
  * Wraps `embed`/`embedMany` from the `ai` SDK for both ingestion-time
@@ -30,7 +55,7 @@ export class EmbeddingService {
   async embedOne(text: string): Promise<number[]> {
     const { embedding } = await embed({
       model: this.openai.embeddingModel(EMBEDDING_MODEL_ID),
-      value: text,
+      value: truncateForEmbedding(text),
     });
     return embedding;
   }
@@ -46,7 +71,7 @@ export class EmbeddingService {
 
     const results: number[][] = [];
     for (let i = 0; i < texts.length; i += BATCH_SIZE) {
-      const batch = texts.slice(i, i + BATCH_SIZE);
+      const batch = texts.slice(i, i + BATCH_SIZE).map(truncateForEmbedding);
       const { embeddings } = await embedMany({
         model: this.openai.embeddingModel(EMBEDDING_MODEL_ID),
         values: batch,

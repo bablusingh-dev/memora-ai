@@ -3,11 +3,12 @@ import { studioArtifactRequested } from '../events.js';
 import { StudioRepository } from '../../repositories/studio.repository.js';
 import { buildStudioContext, StudioContext } from '../../services/studio-context.service.js';
 import { generateFlashcards } from '../../services/studio-generators/flashcards.service.js';
+import { generateQuiz } from '../../services/studio-generators/quiz.service.js';
 import { logger } from '../../utils/logger.js';
 
 const studioRepo = new StudioRepository();
 
-type StudioArtifactKind = 'flashcards';
+type StudioArtifactKind = 'flashcards' | 'quiz';
 
 /**
  * One entry per Studio output kind. Adding a new kind (Mind Map, Slide
@@ -17,6 +18,7 @@ type StudioArtifactKind = 'flashcards';
  */
 const studioGenerators: Record<StudioArtifactKind, (ctx: StudioContext) => Promise<{ title: string; payload: unknown }>> = {
   flashcards: generateFlashcards,
+  quiz: generateQuiz,
 };
 
 /**

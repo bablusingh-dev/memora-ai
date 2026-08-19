@@ -1,4 +1,4 @@
-import pdfParse from 'pdf-parse';
+import { PDFParse } from 'pdf-parse';
 import { inngest } from '../client.js';
 import {
   sourceFileUploaded,
@@ -191,13 +191,26 @@ export const ingestFileFunction = inngest.createFunction(
       const buffer = Buffer.from(await res.arrayBuffer());
 
       if (mimeType === 'application/pdf') {
+        // pdf-parse v2's API is a class (new PDFParse({...}).getText()), not
+        // the old v1 callable-function default export. There is no sane
+        // fallback for a genuine parse failure — decoding a PDF's raw binary
+        // bytes as UTF-8 (the old behavior here) produces compressed-stream
+        // garbage, not text, which then silently poisons chunking, BM25,
+        // embeddings, and every LLM prompt built from this source. Let a
+        // real failure surface as an ingestion error instead.
+        const parser = new PDFParse({ data: buffer });
         try {
-          const parseFn = (pdfParse as any).default || pdfParse;
-          const pdfData = await parseFn(buffer);
-          return pdfData.text as string;
-        } catch (err) {
-          logger.warn({ err, sourceId }, '[IngestSource] PDF parse failed, falling back to raw text decode');
-          return buffer.toString('utf-8');
+          // pageJoiner: '' — pdf-parse's default inserts a
+          // "-- page N of M --" marker between pages, which would otherwise
+          // end up embedded in chunk content as if it were part of the text.
+          const result = await parser.getText({ pageJoiner: '\n\n' });
+          const text = (result.text || '').trim();
+          if (!text) {
+            throw new Error('No extractable text found in this PDF — it may be a scanned/image-only document with no text layer.');
+          }
+          return text;
+        } finally {
+          await parser.destroy();
         }
       }
       return buffer.toString('utf-8');

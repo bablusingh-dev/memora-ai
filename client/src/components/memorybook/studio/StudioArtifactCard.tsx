@@ -1,12 +1,13 @@
 'use client';
 
 import React from 'react';
-import { Layers, Loader2, AlertTriangle, Trash2 } from 'lucide-react';
+import { Layers, HelpCircle, Loader2, AlertTriangle, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { StudioArtifact } from '@/types/api';
 
 const KIND_ICONS: Record<string, React.ElementType> = {
   flashcards: Layers,
+  quiz: HelpCircle,
 };
 
 interface StudioArtifactCardProps {

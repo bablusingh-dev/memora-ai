@@ -15,7 +15,7 @@ import {
   websiteSourceSchema,
   youtubeSourceSchema,
   textSourceSchema,
-  uuidParamSchema,
+  sourceIdParamSchema,
 } from '../validators/index.js';
 
 const storage = multer.memoryStorage();
@@ -33,6 +33,6 @@ router.post('/upload', validateRequest({ params: memorybookIdParamSchema }), upl
 router.post('/website', validateRequest({ params: memorybookIdParamSchema, body: websiteSourceSchema }), ingestWebsite);
 router.post('/youtube', validateRequest({ params: memorybookIdParamSchema, body: youtubeSourceSchema }), ingestYoutube);
 router.post('/text', validateRequest({ params: memorybookIdParamSchema, body: textSourceSchema }), ingestTextNote);
-router.delete('/:id', validateRequest({ params: uuidParamSchema }), deleteSource);
+router.delete('/:id', validateRequest({ params: sourceIdParamSchema }), deleteSource);
 
 export default router;

@@ -12,7 +12,16 @@ export const validateRequest = (schemas: RequestValidationSchemas) => {
   return async (req: Request, res: Response, next: NextFunction) => {
     try {
       if (schemas.params) {
-        req.params = await schemas.params.parseAsync(req.params);
+        // Merge rather than replace: nested routers (mergeParams: true) put
+        // parent-router params (e.g. :memorybookId) on req.params alongside
+        // this leaf route's own (e.g. :id) — but a leaf's schema only
+        // declares its own param(s). Replacing req.params wholesale with the
+        // parse result would silently drop every param the schema doesn't
+        // mention, turning it into `undefined` for the rest of the request
+        // (e.g. a nested DELETE /:id losing :memorybookId, which then reads
+        // as a valid-but-nonexistent id instead of a validation error).
+        const parsedParams = await schemas.params.parseAsync(req.params);
+        req.params = { ...req.params, ...parsedParams };
       }
       if (schemas.query) {
         req.query = await schemas.query.parseAsync(req.query);

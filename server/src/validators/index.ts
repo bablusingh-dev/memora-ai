@@ -9,14 +9,23 @@ export const memorybookIdParamSchema = z.object({
   memorybookId: z.string().uuid('Memorybook ID must be a valid UUID format'),
 });
 
+// Validates both the parent :memorybookId and the leaf :id together for
+// nested single-resource routes (GET/DELETE /:memorybookId/<resource>/:id).
+// Field is named `id` (not `sourceId`/`noteId`) to match the actual route
+// param name each of these is mounted under.
 export const sourceIdParamSchema = z.object({
   memorybookId: z.string().uuid('Memorybook ID must be a valid UUID format'),
-  sourceId: z.string().uuid('Source ID must be a valid UUID format'),
+  id: z.string().uuid('Source ID must be a valid UUID format'),
 });
 
 export const noteIdParamSchema = z.object({
   memorybookId: z.string().uuid('Memorybook ID must be a valid UUID format'),
-  noteId: z.string().uuid('Note ID must be a valid UUID format'),
+  id: z.string().uuid('Note ID must be a valid UUID format'),
+});
+
+export const studioIdParamSchema = z.object({
+  memorybookId: z.string().uuid('Memorybook ID must be a valid UUID format'),
+  id: z.string().uuid('Studio artifact ID must be a valid UUID format'),
 });
 
 // Memorybook Validators
@@ -61,5 +70,5 @@ export const createNoteSchema = z.object({
 // Studio Artifact Validators
 export const studioKindParamSchema = z.object({
   memorybookId: z.string().uuid('Memorybook ID must be a valid UUID format'),
-  kind: z.enum(['flashcards'], { errorMap: () => ({ message: 'Unsupported studio artifact kind' }) }),
+  kind: z.enum(['flashcards', 'quiz'], { errorMap: () => ({ message: 'Unsupported studio artifact kind' }) }),
 });

@@ -54,10 +54,19 @@ export interface Memorybook {
   notes?: Note[];
 }
 
-export type StudioArtifactKind = 'flashcards';
+export type StudioArtifactKind = 'flashcards' | 'quiz';
 
 export interface FlashcardsPayload {
   cards: { front: string; back: string }[];
+}
+
+export interface QuizPayload {
+  questions: {
+    question: string;
+    options: string[];
+    correctIndex: number;
+    explanation: string;
+  }[];
 }
 
 export interface StudioArtifact {
@@ -68,7 +77,7 @@ export interface StudioArtifact {
   status: 'generating' | 'ready' | 'error';
   errorMessage?: string | null;
   /** Kind-specific structured content. Null until status is 'ready'. */
-  payload: FlashcardsPayload | null;
+  payload: FlashcardsPayload | QuizPayload | null;
   createdAt: string;
   updatedAt: string;
 }

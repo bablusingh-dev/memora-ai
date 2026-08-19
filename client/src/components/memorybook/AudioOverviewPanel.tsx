@@ -28,9 +28,10 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
 import { useMemorybookStore } from '@/store/useMemorybookStore';
-import { StudioArtifact } from '@/types/api';
+import { StudioArtifact, StudioArtifactKind } from '@/types/api';
 import { StudioArtifactCard } from '@/components/memorybook/studio/StudioArtifactCard';
 import { FlashcardViewer } from '@/components/memorybook/studio/FlashcardViewer';
+import { QuizViewer } from '@/components/memorybook/studio/QuizViewer';
 import {
   Dialog,
   DialogContent,
@@ -38,6 +39,37 @@ import {
   DialogTitle,
   DialogDescription,
 } from '@/components/ui/dialog';
+
+/**
+ * One entry per live Studio generator card. Adding a new kind here (plus a
+ * viewer branch in the artifact dialog below) is the only UI change needed
+ * per feature — the generation/polling/list plumbing is generic.
+ */
+const STUDIO_GENERATOR_CONFIGS: {
+  kind: StudioArtifactKind;
+  label: string;
+  description: string;
+  generatingLabel: string;
+  icon: React.ElementType;
+  iconClass: string;
+}[] = [
+  {
+    kind: 'flashcards',
+    label: 'Flashcards',
+    description: 'Study cards generated from your sources',
+    generatingLabel: 'Generating your deck…',
+    icon: Layers,
+    iconClass: 'bg-violet-500/10 text-violet-500',
+  },
+  {
+    kind: 'quiz',
+    label: 'Quiz',
+    description: 'Test your understanding with multiple-choice questions',
+    generatingLabel: 'Generating your quiz…',
+    icon: HelpCircle,
+    iconClass: 'bg-sky-500/10 text-sky-500',
+  },
+];
 
 export function AudioOverviewPanel() {
   const {
@@ -68,18 +100,20 @@ export function AudioOverviewPanel() {
 
   // Studio artifact generation/viewing state
   const [selectedArtifact, setSelectedArtifact] = useState<StudioArtifact | null>(null);
-  const [isGeneratingFlashcards, setIsGeneratingFlashcards] = useState(false);
-  const isFlashcardsGenerating = isGeneratingFlashcards || studioArtifacts.some((a) => a.kind === 'flashcards' && a.status === 'generating');
+  const [requestingKind, setRequestingKind] = useState<StudioArtifactKind | null>(null);
 
-  const handleGenerateFlashcards = async () => {
-    if (!activeMemorybook || isFlashcardsGenerating) return;
-    setIsGeneratingFlashcards(true);
+  const isKindGenerating = (kind: StudioArtifactKind) =>
+    requestingKind === kind || studioArtifacts.some((a) => a.kind === kind && a.status === 'generating');
+
+  const handleGenerate = async (kind: StudioArtifactKind) => {
+    if (!activeMemorybook || isKindGenerating(kind)) return;
+    setRequestingKind(kind);
     try {
-      await generateStudioArtifact('flashcards');
+      await generateStudioArtifact(kind);
     } catch (e) {
       // error surfaced via store's error state / the card's own status
     } finally {
-      setIsGeneratingFlashcards(false);
+      setRequestingKind(null);
     }
   };
 
@@ -292,39 +326,44 @@ export function AudioOverviewPanel() {
             AI synthesis tools based on your workspace sources:
           </p>
 
-          <Card
-            onClick={handleGenerateFlashcards}
-            className={`bg-background/90 dark:bg-card border-0 shadow-2xs rounded-2xl p-3 flex items-center space-x-3 transition-all duration-150 ${
-              !activeMemorybook || isFlashcardsGenerating
-                ? 'opacity-60 cursor-not-allowed'
-                : 'hover:bg-background cursor-pointer hover:scale-[1.01] active:scale-[0.99]'
-            }`}
-          >
-            <div className="p-2 rounded-xl bg-violet-500/10 text-violet-500 shrink-0">
-              {isFlashcardsGenerating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Layers className="w-4 h-4" />}
-            </div>
-            <div>
-              <h4 className="text-xs font-bold text-foreground">Flashcards</h4>
-              <p className="text-[10px] text-muted-foreground">
-                {isFlashcardsGenerating ? 'Generating your deck…' : 'Study cards generated from your sources'}
-              </p>
-            </div>
-          </Card>
+          {STUDIO_GENERATOR_CONFIGS.map(({ kind, label, description, generatingLabel, icon: Icon, iconClass }) => {
+            const generating = isKindGenerating(kind);
+            return (
+              <React.Fragment key={kind}>
+                <Card
+                  onClick={() => handleGenerate(kind)}
+                  className={`bg-background/90 dark:bg-card border-0 shadow-2xs rounded-2xl p-3 flex items-center space-x-3 transition-all duration-150 ${
+                    !activeMemorybook || generating
+                      ? 'opacity-60 cursor-not-allowed'
+                      : 'hover:bg-background cursor-pointer hover:scale-[1.01] active:scale-[0.99]'
+                  }`}
+                >
+                  <div className={`p-2 rounded-xl shrink-0 ${iconClass}`}>
+                    {generating ? <Loader2 className="w-4 h-4 animate-spin" /> : <Icon className="w-4 h-4" />}
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-foreground">{label}</h4>
+                    <p className="text-[10px] text-muted-foreground">{generating ? generatingLabel : description}</p>
+                  </div>
+                </Card>
 
-          {studioArtifacts.filter((a) => a.kind === 'flashcards').length > 0 && (
-            <div className="space-y-2 pt-1">
-              {studioArtifacts
-                .filter((a) => a.kind === 'flashcards')
-                .map((artifact) => (
-                  <StudioArtifactCard
-                    key={artifact.id}
-                    artifact={artifact}
-                    onOpen={() => setSelectedArtifact(artifact)}
-                    onDelete={() => deleteStudioArtifact(artifact.id)}
-                  />
-                ))}
-            </div>
-          )}
+                {studioArtifacts.filter((a) => a.kind === kind).length > 0 && (
+                  <div className="space-y-2 pt-1">
+                    {studioArtifacts
+                      .filter((a) => a.kind === kind)
+                      .map((artifact) => (
+                        <StudioArtifactCard
+                          key={artifact.id}
+                          artifact={artifact}
+                          onOpen={() => setSelectedArtifact(artifact)}
+                          onDelete={() => deleteStudioArtifact(artifact.id)}
+                        />
+                      ))}
+                  </div>
+                )}
+              </React.Fragment>
+            );
+          })}
 
           <p className="text-[10px] text-muted-foreground/70 pt-3 pb-1 uppercase tracking-wide font-semibold">
             Coming soon
@@ -433,16 +472,27 @@ export function AudioOverviewPanel() {
         <DialogContent className="sm:max-w-[440px] border-0 bg-slate-100 dark:bg-zinc-900 ring-1 ring-black/5 dark:ring-white/10 shadow-2xl dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.95)] text-foreground rounded-3xl p-5 space-y-3">
           <DialogHeader className="bg-white dark:bg-zinc-950 p-4 rounded-2xl shadow-2xs">
             <DialogTitle className="flex items-center gap-2 text-sm font-bold text-foreground">
-              <Layers className="w-4 h-4 text-primary" />
+              {selectedArtifact?.kind === 'quiz' ? (
+                <HelpCircle className="w-4 h-4 text-primary" />
+              ) : (
+                <Layers className="w-4 h-4 text-primary" />
+              )}
               <span className="truncate">{selectedArtifact?.title}</span>
             </DialogTitle>
             <DialogDescription className="text-[11px] text-muted-foreground mt-0.5">
-              {selectedArtifact?.payload?.cards.length ?? 0} cards, generated from your sources
+              {selectedArtifact?.kind === 'quiz'
+                ? `${selectedArtifact.payload && 'questions' in selectedArtifact.payload ? selectedArtifact.payload.questions.length : 0} questions, generated from your sources`
+                : `${selectedArtifact?.payload && 'cards' in selectedArtifact.payload ? selectedArtifact.payload.cards.length : 0} cards, generated from your sources`}
             </DialogDescription>
           </DialogHeader>
 
           <div className="p-4 rounded-2xl bg-white dark:bg-zinc-950 shadow-2xs">
-            {selectedArtifact?.payload && <FlashcardViewer payload={selectedArtifact.payload} />}
+            {selectedArtifact?.payload && selectedArtifact.kind === 'flashcards' && 'cards' in selectedArtifact.payload && (
+              <FlashcardViewer payload={selectedArtifact.payload} />
+            )}
+            {selectedArtifact?.payload && selectedArtifact.kind === 'quiz' && 'questions' in selectedArtifact.payload && (
+              <QuizViewer payload={selectedArtifact.payload} />
+            )}
           </div>
         </DialogContent>
       </Dialog>
