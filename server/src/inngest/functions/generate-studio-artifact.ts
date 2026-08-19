@@ -6,11 +6,12 @@ import { generateFlashcards } from '../../services/studio-generators/flashcards.
 import { generateQuiz } from '../../services/studio-generators/quiz.service.js';
 import { generateDataTable } from '../../services/studio-generators/data-table.service.js';
 import { generateReport } from '../../services/studio-generators/report.service.js';
+import { generateMindMap } from '../../services/studio-generators/mind-map.service.js';
 import { logger } from '../../utils/logger.js';
 
 const studioRepo = new StudioRepository();
 
-type StudioArtifactKind = 'flashcards' | 'quiz' | 'data_table' | 'report';
+type StudioArtifactKind = 'flashcards' | 'quiz' | 'data_table' | 'report' | 'mind_map';
 
 /**
  * One entry per Studio output kind. Adding a new kind (Mind Map, Slide
@@ -23,6 +24,7 @@ const studioGenerators: Record<StudioArtifactKind, (ctx: StudioContext) => Promi
   quiz: generateQuiz,
   data_table: generateDataTable,
   report: generateReport,
+  mind_map: generateMindMap,
 };
 
 /**

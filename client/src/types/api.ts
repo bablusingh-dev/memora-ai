@@ -54,7 +54,7 @@ export interface Memorybook {
   notes?: Note[];
 }
 
-export type StudioArtifactKind = 'flashcards' | 'quiz' | 'data_table' | 'report';
+export type StudioArtifactKind = 'flashcards' | 'quiz' | 'data_table' | 'report' | 'mind_map';
 
 export interface FlashcardsPayload {
   cards: { front: string; back: string }[];
@@ -80,6 +80,12 @@ export interface ReportPayload {
   sections: { heading: string; content: string }[];
 }
 
+export interface MindMapPayload {
+  nodes: { id: string; label: string }[];
+  edges: { source: string; target: string; label?: string }[];
+  rootId: string;
+}
+
 export interface StudioArtifact {
   id: string;
   memorybookId: string;
@@ -88,7 +94,7 @@ export interface StudioArtifact {
   status: 'generating' | 'ready' | 'error';
   errorMessage?: string | null;
   /** Kind-specific structured content. Null until status is 'ready'. */
-  payload: FlashcardsPayload | QuizPayload | DataTablePayload | ReportPayload | null;
+  payload: FlashcardsPayload | QuizPayload | DataTablePayload | ReportPayload | MindMapPayload | null;
   createdAt: string;
   updatedAt: string;
 }

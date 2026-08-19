@@ -22,6 +22,7 @@ import {
   Loader2,
   Table2,
   ScrollText,
+  Network,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -36,6 +37,7 @@ import { FlashcardViewer } from '@/components/memorybook/studio/FlashcardViewer'
 import { QuizViewer } from '@/components/memorybook/studio/QuizViewer';
 import { DataTableViewer } from '@/components/memorybook/studio/DataTableViewer';
 import { ReportViewer } from '@/components/memorybook/studio/ReportViewer';
+import { MindMapViewer } from '@/components/memorybook/studio/MindMapViewer';
 import {
   Dialog,
   DialogContent,
@@ -89,6 +91,14 @@ const STUDIO_GENERATOR_CONFIGS: {
     icon: ScrollText,
     iconClass: 'bg-rose-500/10 text-rose-500',
   },
+  {
+    kind: 'mind_map',
+    label: 'Mind Map',
+    description: 'Key concepts and how they connect, visualized',
+    generatingLabel: 'Mapping your sources…',
+    icon: Network,
+    iconClass: 'bg-teal-500/10 text-teal-500',
+  },
 ];
 
 /**
@@ -120,11 +130,16 @@ const STUDIO_VIEWER_CONFIGS: Record<
     describe: (a) => `${a.payload && 'sections' in a.payload ? a.payload.sections.length : 0} sections, generated from your sources`,
     render: (a) => (a.payload && 'sections' in a.payload ? <ReportViewer payload={a.payload} /> : null),
   },
+  mind_map: {
+    icon: Network,
+    describe: (a) => `${a.payload && 'nodes' in a.payload ? a.payload.nodes.length : 0} concepts, generated from your sources`,
+    render: (a) => (a.payload && 'nodes' in a.payload ? <MindMapViewer payload={a.payload} /> : null),
+  },
 };
 
 // Kinds whose content benefits from a wider dialog (a table or a long-form
 // document reads poorly squeezed into the default 440px card-style width).
-const WIDE_VIEWER_KINDS = new Set<StudioArtifactKind>(['data_table', 'report']);
+const WIDE_VIEWER_KINDS = new Set<StudioArtifactKind>(['data_table', 'report', 'mind_map']);
 
 export function AudioOverviewPanel() {
   const {
@@ -526,7 +541,11 @@ export function AudioOverviewPanel() {
       <Dialog open={!!selectedArtifact} onOpenChange={() => setSelectedArtifact(null)}>
         <DialogContent
           className={`${
-            selectedArtifact && WIDE_VIEWER_KINDS.has(selectedArtifact.kind) ? 'sm:max-w-[640px]' : 'sm:max-w-[440px]'
+            selectedArtifact?.kind === 'mind_map'
+              ? 'sm:max-w-[820px]'
+              : selectedArtifact && WIDE_VIEWER_KINDS.has(selectedArtifact.kind)
+                ? 'sm:max-w-[640px]'
+                : 'sm:max-w-[440px]'
           } border-0 bg-slate-100 dark:bg-zinc-900 ring-1 ring-black/5 dark:ring-white/10 shadow-2xl dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.95)] text-foreground rounded-3xl p-5 space-y-3`}
         >
           {selectedArtifact && (

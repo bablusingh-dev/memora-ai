@@ -70,5 +70,5 @@ export const createNoteSchema = z.object({
 // Studio Artifact Validators
 export const studioKindParamSchema = z.object({
   memorybookId: z.string().uuid('Memorybook ID must be a valid UUID format'),
-  kind: z.enum(['flashcards', 'quiz', 'data_table', 'report'], { errorMap: () => ({ message: 'Unsupported studio artifact kind' }) }),
+  kind: z.enum(['flashcards', 'quiz', 'data_table', 'report', 'mind_map'], { errorMap: () => ({ message: 'Unsupported studio artifact kind' }) }),
 });
