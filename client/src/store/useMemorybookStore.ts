@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, uploadClient } from '@/lib/api-client';
 import { Memorybook, SourceDocument, Note, StudioArtifact, StudioArtifactKind } from '@/types/api';
 
 interface MemorybookState {
@@ -280,7 +280,7 @@ export const useMemorybookStore = create<MemorybookState>((set, get) => ({
       const formData = new FormData();
       formData.append('file', file);
 
-      const source = await apiClient.post<any, SourceDocument>(
+      const source = await uploadClient.post<any, SourceDocument>(
         `/memorybooks/${active.id}/sources/upload`,
         formData,
         { headers: { 'Content-Type': 'multipart/form-data' } }

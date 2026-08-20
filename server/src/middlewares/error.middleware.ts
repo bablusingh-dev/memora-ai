@@ -1,4 +1,5 @@
 import { Request, Response, NextFunction, ErrorRequestHandler } from 'express';
+import { MulterError } from 'multer';
 import { ApiError } from '../utils/api-error.js';
 import { ApiResponse } from '../utils/api-response.js';
 import { logger } from '../utils/logger.js';
@@ -23,6 +24,13 @@ export const errorMiddleware: ErrorRequestHandler = (
     errorCode = err.errorCode;
     message = err.message;
     details = err.details;
+  } else if (err instanceof MulterError) {
+    statusCode = StatusCodes.BAD_REQUEST;
+    errorCode = 'BAD_REQUEST';
+    message =
+      err.code === 'LIMIT_FILE_SIZE'
+        ? 'File is too large. Maximum upload size is 10MB.'
+        : err.message;
   } else {
     logger.error(
       {

@@ -33,10 +33,26 @@ export function AddSourceModal() {
   const [textContent, setTextContent] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
 
+  const MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024; // matches the backend's Cloudinary-imposed cap
+
+  const handleFileSelect = (file: File | null) => {
+    if (file && file.size > MAX_FILE_SIZE_BYTES) {
+      setErrorMsg(`"${file.name}" is ${(file.size / (1024 * 1024)).toFixed(1)}MB — max upload size is 10MB.`);
+      setSelectedFile(null);
+      return;
+    }
+    setErrorMsg('');
+    setSelectedFile(file);
+  };
+
   const handleFileUpload = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedFile) {
       setErrorMsg('Please select a PDF or document file');
+      return;
+    }
+    if (selectedFile.size > MAX_FILE_SIZE_BYTES) {
+      setErrorMsg('File is too large. Maximum upload size is 10MB.');
       return;
     }
     setErrorMsg('');
@@ -149,11 +165,11 @@ export function AddSourceModal() {
           {/* TAB 1: FILE UPLOAD */}
           <TabsContent value="file" className="pt-3">
             <form onSubmit={handleFileUpload} className="bg-white dark:bg-zinc-950 p-4 rounded-2xl shadow-2xs space-y-4">
-              <div className="rounded-2xl p-6 text-center cursor-pointer bg-slate-100 dark:bg-zinc-850 hover:bg-slate-200/60 dark:hover:bg-zinc-800 transition-colors duration-150 relative border-0">
+              <div className="rounded-2xl p-6 text-center cursor-pointer bg-slate-100 dark:bg-zinc-900 hover:bg-slate-200/60 dark:hover:bg-zinc-800 transition-colors duration-150 relative border-0">
                 <input
                   type="file"
                   accept=".pdf,.txt,.doc,.docx"
-                  onChange={(e) => setSelectedFile(e.target.files?.[0] || null)}
+                  onChange={(e) => handleFileSelect(e.target.files?.[0] || null)}
                   className="absolute inset-0 opacity-0 cursor-pointer w-full h-full"
                 />
                 <div className="flex flex-col items-center justify-center space-y-2">
@@ -165,7 +181,7 @@ export function AddSourceModal() {
                       {selectedFile ? selectedFile.name : 'Click to select or drag PDF/Docs here'}
                     </p>
                     <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">
-                      PDF, DOCX, TXT up to 25MB
+                      PDF, DOCX, TXT up to 10MB
                     </p>
                   </div>
                 </div>
@@ -176,7 +192,7 @@ export function AddSourceModal() {
                 disabled={!selectedFile || isLoading}
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-10 rounded-2xl border-0 shadow-xs gap-2"
               >
-                {isLoading ? <Loader2 className="w-4 h-4" /> : null}
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 <span>Upload & Index</span>
               </Button>
             </form>
@@ -204,7 +220,7 @@ export function AddSourceModal() {
                 disabled={!webUrl.trim() || isLoading}
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-10 rounded-2xl border-0 shadow-xs gap-2"
               >
-                {isLoading ? <Loader2 className="w-4 h-4" /> : null}
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 <span>Crawl Website & Index</span>
               </Button>
             </form>
@@ -232,7 +248,7 @@ export function AddSourceModal() {
                 disabled={!youtubeUrl.trim() || isLoading}
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-10 rounded-2xl border-0 shadow-xs gap-2"
               >
-                {isLoading ? <Loader2 className="w-4 h-4" /> : null}
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 <span>Fetch Transcript & Index</span>
               </Button>
             </form>
@@ -269,7 +285,7 @@ export function AddSourceModal() {
                 disabled={!textTitle.trim() || !textContent.trim() || isLoading}
                 className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-10 rounded-2xl border-0 shadow-xs gap-2"
               >
-                {isLoading ? <Loader2 className="w-4 h-4" /> : null}
+                {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
                 <span>Save Note & Index</span>
               </Button>
             </form>

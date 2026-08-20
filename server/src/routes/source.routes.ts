@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import multer from 'multer';
+import { MAX_UPLOAD_FILE_SIZE_BYTES } from '../utils/cloudinary.js';
 import {
   getSources,
   uploadSourceFile,
@@ -21,7 +22,7 @@ import {
 const storage = multer.memoryStorage();
 const upload = multer({
   storage,
-  limits: { fileSize: 25 * 1024 * 1024 }, // 25MB max file size
+  limits: { fileSize: MAX_UPLOAD_FILE_SIZE_BYTES }, // matches Cloudinary's plan-level asset size cap
 });
 
 const router = Router({ mergeParams: true });

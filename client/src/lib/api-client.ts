@@ -11,6 +11,19 @@ export const apiClient: AxiosInstance = axios.create({
   timeout: 30000,
 });
 
+// Dedicated client for file uploads. Hits the backend directly instead of
+// going through the Next.js dev-server rewrite proxy, which buffers/streams
+// multipart bodies slowly in dev and can abort large uploads well before
+// they finish. Backend CORS already allows the client origin + Authorization
+// header, so this is safe cross-origin. Also gets a longer timeout since
+// large files legitimately take longer than a typical JSON request.
+const UPLOAD_BASE_URL = `${process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:5000'}/api/v1`;
+
+export const uploadClient: AxiosInstance = axios.create({
+  baseURL: UPLOAD_BASE_URL,
+  timeout: 300000, // 5 minutes
+});
+
 export type TokenGetter = (options?: { skipCache?: boolean }) => Promise<string | null>;
 
 let activeTokenGetter: TokenGetter | null = null;
@@ -43,52 +56,43 @@ export function getAuthToken(): string | null {
 }
 
 // Request Interceptor: Dynamically injects fresh Clerk JWT token before EVERY request
-apiClient.interceptors.request.use(
-  async (config: InternalAxiosRequestConfig) => {
-    let token: string | null = null;
+const authRequestInterceptor = async (config: InternalAxiosRequestConfig) => {
+  let token: string | null = null;
 
-    // 1. Try active token getter from React context / useAuth
-    if (activeTokenGetter) {
-      try {
-        token = await activeTokenGetter();
-      } catch {
-        token = null;
-      }
+  // 1. Try active token getter from React context / useAuth
+  if (activeTokenGetter) {
+    try {
+      token = await activeTokenGetter();
+    } catch {
+      token = null;
     }
+  }
 
-    // 2. Fallback to Clerk global instance if available in window
-    if (!token && typeof window !== 'undefined' && (window as any).Clerk?.session) {
-      try {
-        token = await (window as any).Clerk.session.getToken();
-      } catch {
-        token = null;
-      }
+  // 2. Fallback to Clerk global instance if available in window
+  if (!token && typeof window !== 'undefined' && (window as any).Clerk?.session) {
+    try {
+      token = await (window as any).Clerk.session.getToken();
+    } catch {
+      token = null;
     }
+  }
 
-    // 3. Fallback to manually set auth token
-    if (!token && currentAuthToken) {
-      token = currentAuthToken;
-    }
+  // 3. Fallback to manually set auth token
+  if (!token && currentAuthToken) {
+    token = currentAuthToken;
+  }
 
-    if (token) {
-      const bearer = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
-      config.headers.set('Authorization', bearer);
-    }
+  if (token) {
+    const bearer = token.startsWith('Bearer ') ? token : `Bearer ${token}`;
+    config.headers.set('Authorization', bearer);
+  }
 
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+  return config;
+};
 
 // Response Interceptor: Unwraps ApiResponse envelope & handles 401 automatic token refresh retry
-apiClient.interceptors.response.use(
-  (response: AxiosResponse<ApiResponse>) => {
-    if (response.data && response.data.success !== undefined) {
-      return response.data.data;
-    }
-    return response.data;
-  },
-  async (error: AxiosError<ApiErrorResponse>) => {
+function makeAuthResponseInterceptor(client: AxiosInstance) {
+  return async (error: AxiosError<ApiErrorResponse>) => {
     const originalRequest = error.config as any;
 
     // If 401 Unauthorized and request has not been retried yet, force fresh token and retry once
@@ -119,7 +123,7 @@ apiClient.interceptors.response.use(
           originalRequest.headers = originalRequest.headers || {};
           originalRequest.headers['Authorization'] = bearer;
         }
-        return apiClient(originalRequest);
+        return client(originalRequest);
       }
     }
 
@@ -132,6 +136,28 @@ apiClient.interceptors.response.use(
       return Promise.reject(customError);
     }
     return Promise.reject(error);
-  }
+  };
+}
+
+apiClient.interceptors.request.use(authRequestInterceptor, (error) => Promise.reject(error));
+apiClient.interceptors.response.use(
+  (response: AxiosResponse<ApiResponse>) => {
+    if (response.data && response.data.success !== undefined) {
+      return response.data.data;
+    }
+    return response.data;
+  },
+  makeAuthResponseInterceptor(apiClient)
+);
+
+uploadClient.interceptors.request.use(authRequestInterceptor, (error) => Promise.reject(error));
+uploadClient.interceptors.response.use(
+  (response: AxiosResponse<ApiResponse>) => {
+    if (response.data && response.data.success !== undefined) {
+      return response.data.data;
+    }
+    return response.data;
+  },
+  makeAuthResponseInterceptor(uploadClient)
 );
 
