@@ -70,5 +70,11 @@ export const createNoteSchema = z.object({
 // Studio Artifact Validators
 export const studioKindParamSchema = z.object({
   memorybookId: z.string().uuid('Memorybook ID must be a valid UUID format'),
-  kind: z.enum(['flashcards', 'quiz', 'data_table', 'report', 'mind_map', 'slide_deck'], { errorMap: () => ({ message: 'Unsupported studio artifact kind' }) }),
+  kind: z.enum(['flashcards', 'quiz', 'data_table', 'report', 'mind_map', 'slide_deck', 'podcast'], { errorMap: () => ({ message: 'Unsupported studio artifact kind' }) }),
+});
+
+// Optional generation-time options. Currently only meaningful for `podcast`
+// (steers what the two hosts focus on) — other kinds ignore the body.
+export const studioGenerationOptionsSchema = z.object({
+  focus: z.string().trim().max(300, 'Focus cannot exceed 300 characters').optional(),
 });

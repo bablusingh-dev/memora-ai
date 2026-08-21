@@ -37,7 +37,7 @@ interface MemorybookState {
 
   // Studio Artifact Actions
   fetchStudioArtifacts: () => Promise<void>;
-  generateStudioArtifact: (kind: StudioArtifactKind) => Promise<StudioArtifact>;
+  generateStudioArtifact: (kind: StudioArtifactKind, options?: { focus?: string }) => Promise<StudioArtifact>;
   deleteStudioArtifact: (artifactId: string) => Promise<void>;
 }
 
@@ -456,11 +456,11 @@ export const useMemorybookStore = create<MemorybookState>((set, get) => ({
     }
   },
 
-  generateStudioArtifact: async (kind: StudioArtifactKind) => {
+  generateStudioArtifact: async (kind: StudioArtifactKind, options?: { focus?: string }) => {
     const active = get().activeMemorybook;
     if (!active) throw new Error('No active memorybook selected');
     try {
-      const artifact = await apiClient.post<any, StudioArtifact>(`/memorybooks/${active.id}/studio/${kind}`);
+      const artifact = await apiClient.post<any, StudioArtifact>(`/memorybooks/${active.id}/studio/${kind}`, options);
       set({ studioArtifacts: [artifact, ...get().studioArtifacts] });
       ensureStudioPolling(get, set);
       return artifact;

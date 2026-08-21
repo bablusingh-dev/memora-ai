@@ -8,19 +8,32 @@ import { generateDataTable } from '../../services/studio-generators/data-table.s
 import { generateReport } from '../../services/studio-generators/report.service.js';
 import { generateMindMap } from '../../services/studio-generators/mind-map.service.js';
 import { generateSlideDeck } from '../../services/studio-generators/slide-deck.service.js';
+import {
+  generatePodcastScript,
+  synthesizeTurnsBatch,
+  stitchAndUploadPodcast,
+} from '../../services/studio-generators/podcast.service.js';
 import { logger } from '../../utils/logger.js';
 
 const studioRepo = new StudioRepository();
 
-type StudioArtifactKind = 'flashcards' | 'quiz' | 'data_table' | 'report' | 'mind_map' | 'slide_deck';
+type StudioArtifactKind = 'flashcards' | 'quiz' | 'data_table' | 'report' | 'mind_map' | 'slide_deck' | 'podcast';
 
 /**
- * One entry per Studio output kind. Adding a new kind (Mind Map, Slide
- * Deck, Report, Quiz, Data Table) is: write its generator service, add one
- * entry here, add the kind to the `studioArtifactRequested` event enum and
- * `studioKindParamSchema` — the function body below stays unchanged.
+ * One entry per Studio output kind that fits the generic "one LLM call
+ * produces the whole payload" shape. Adding a kind like that (Mind Map,
+ * Slide Deck, Report, Quiz, Data Table) is: write its generator service, add
+ * one entry here, add the kind to the `studioArtifactRequested` event enum
+ * and `studioKindParamSchema` — the function body below stays unchanged.
+ *
+ * `podcast` is deliberately NOT in this record — script generation + many
+ * sequential TTS calls + stitching doesn't fit the one-shot shape, so it's
+ * handled by its own branch below with per-batch Inngest steps instead.
  */
-const studioGenerators: Record<StudioArtifactKind, (ctx: StudioContext) => Promise<{ title: string; payload: unknown }>> = {
+const studioGenerators: Record<
+  Exclude<StudioArtifactKind, 'podcast'>,
+  (ctx: StudioContext) => Promise<{ title: string; payload: unknown }>
+> = {
   flashcards: generateFlashcards,
   quiz: generateQuiz,
   data_table: generateDataTable,
@@ -28,6 +41,11 @@ const studioGenerators: Record<StudioArtifactKind, (ctx: StudioContext) => Promi
   mind_map: generateMindMap,
   slide_deck: generateSlideDeck,
 };
+
+// Turns synthesized per Inngest step for the podcast pipeline — small enough
+// that a failure mid-run only re-pays for one batch's worth of TTS calls on
+// retry, not the whole episode.
+const PODCAST_SYNTHESIS_BATCH_SIZE = 5;
 
 /**
  * Shared onFailure handler: after Inngest exhausts all retries, mark the
@@ -61,7 +79,7 @@ export const generateStudioArtifactFunction = inngest.createFunction(
     onFailure: handleGenerationFailure,
   },
   async ({ event, step }) => {
-    const { artifactId, memorybookId, kind } = event.data;
+    const { artifactId, memorybookId, kind, focus } = event.data;
 
     const context = await step.run('fetch-source-context', () => buildStudioContext(memorybookId));
 
@@ -69,7 +87,27 @@ export const generateStudioArtifactFunction = inngest.createFunction(
       throw new Error('This memorybook has no indexed sources yet — add some sources and wait for them to finish processing first.');
     }
 
-    const generator = studioGenerators[kind as StudioArtifactKind];
+    if (kind === 'podcast') {
+      const script = await step.run('generate-podcast-script', () => generatePodcastScript(context, { focus }));
+
+      const turnAudios: Awaited<ReturnType<typeof synthesizeTurnsBatch>> = [];
+      for (let i = 0; i < script.turns.length; i += PODCAST_SYNTHESIS_BATCH_SIZE) {
+        const batch = script.turns.slice(i, i + PODCAST_SYNTHESIS_BATCH_SIZE);
+        const batchAudios = await step.run(`synthesize-turns-${i}`, () => synthesizeTurnsBatch(batch));
+        turnAudios.push(...batchAudios);
+      }
+
+      const { title, payload } = await step.run('stitch-and-upload-podcast', () =>
+        stitchAndUploadPodcast(script.title, turnAudios)
+      );
+
+      await step.run('persist-artifact', () =>
+        studioRepo.updateArtifact(artifactId, { status: 'ready', title, payload, errorMessage: null })
+      );
+      return;
+    }
+
+    const generator = studioGenerators[kind as Exclude<StudioArtifactKind, 'podcast'>];
     const { title, payload } = await step.run(`generate-${kind}`, () => generator(context));
 
     await step.run('persist-artifact', () =>

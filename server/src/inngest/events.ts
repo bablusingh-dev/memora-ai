@@ -115,6 +115,9 @@ export const studioArtifactRequested = eventType('studio/artifact.requested', {
     memorybookId: z.string().uuid(),
     userId: z.string().min(1),
     // Extend one value at a time as new Studio output kinds ship.
-    kind: z.enum(['flashcards', 'quiz', 'data_table', 'report', 'mind_map', 'slide_deck']),
+    kind: z.enum(['flashcards', 'quiz', 'data_table', 'report', 'mind_map', 'slide_deck', 'podcast']),
+    // Optional generation-time steering. Only `podcast` reads this today —
+    // it centers the two-host discussion on the given topic.
+    focus: z.string().optional(),
   }),
 });

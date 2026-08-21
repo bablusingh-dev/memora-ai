@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Layers, HelpCircle, Table2, ScrollText, Network, Presentation, Loader2, AlertTriangle, Trash2 } from 'lucide-react';
+import { Layers, HelpCircle, Table2, ScrollText, Network, Presentation, Headphones, Loader2, AlertTriangle, Trash2 } from 'lucide-react';
 import { Card } from '@/components/ui/card';
 import { StudioArtifact } from '@/types/api';
 
@@ -12,6 +12,7 @@ const KIND_ICONS: Record<string, React.ElementType> = {
   report: ScrollText,
   mind_map: Network,
   slide_deck: Presentation,
+  podcast: Headphones,
 };
 
 interface StudioArtifactCardProps {

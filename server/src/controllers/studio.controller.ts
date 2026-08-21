@@ -35,7 +35,8 @@ export const generateArtifact = asyncHandler(async (req: AuthenticatedRequest, r
   const memorybookId = req.params.memorybookId as string;
   const kind = req.params.kind as StudioArtifactKind;
   const userId = req.userId!;
-  const artifact = await studioService.requestGeneration(memorybookId, userId, kind);
+  const focus = (req.body as { focus?: string } | undefined)?.focus;
+  const artifact = await studioService.requestGeneration(memorybookId, userId, kind, { focus });
 
   return ApiResponse.accepted({
     res,

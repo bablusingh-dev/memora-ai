@@ -18,6 +18,10 @@ const envSchema = z.object({
   FIRECRAWL_API_KEY: z.string().optional().default('fc-placeholder'),
   OPENAI_API_KEY: z.string().optional().default('sk-placeholder'),
   OPENAI_MODEL: z.string().default('gpt-4o-mini'),
+  // Text-to-speech model for the Podcast Studio artifact (two-host audio
+  // discussion). Separate from OPENAI_MODEL since TTS and chat/completion
+  // models are unrelated model families.
+  OPENAI_TTS_MODEL: z.string().default('gpt-4o-mini-tts'),
 
   // Memory Provider Configuration
   MEMORY_PROVIDER: z.enum(['self_hosted', 'mem0_cloud']).default('mem0_cloud'),

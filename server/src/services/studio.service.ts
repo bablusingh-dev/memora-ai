@@ -4,7 +4,7 @@ import { NotFoundError } from '../utils/api-error.js';
 import { inngest } from '../inngest/client.js';
 import { studioArtifactRequested } from '../inngest/events.js';
 
-export type StudioArtifactKind = 'flashcards' | 'quiz' | 'data_table' | 'report' | 'mind_map' | 'slide_deck';
+export type StudioArtifactKind = 'flashcards' | 'quiz' | 'data_table' | 'report' | 'mind_map' | 'slide_deck' | 'podcast';
 
 const KIND_TITLES: Record<StudioArtifactKind, string> = {
   flashcards: 'Flashcards',
@@ -13,7 +13,13 @@ const KIND_TITLES: Record<StudioArtifactKind, string> = {
   report: 'Report',
   mind_map: 'Mind Map',
   slide_deck: 'Slide Deck',
+  podcast: 'Podcast',
 };
+
+export interface StudioGenerationOptions {
+  /** Optional user-provided topic to center the discussion on. Only `podcast` reads this today. */
+  focus?: string;
+}
 
 /**
  * Same two-phase shape as SourceService: this stays fast (validate + insert
@@ -49,7 +55,12 @@ export class StudioService {
     return artifact;
   }
 
-  async requestGeneration(memorybookId: string, userId: string, kind: StudioArtifactKind): Promise<StudioArtifact> {
+  async requestGeneration(
+    memorybookId: string,
+    userId: string,
+    kind: StudioArtifactKind,
+    options?: StudioGenerationOptions
+  ): Promise<StudioArtifact> {
     const memorybook = await this.memorybookRepo.findById(memorybookId, userId);
     if (!memorybook) {
       throw new NotFoundError(`Memorybook '${memorybookId}' not found`);
@@ -62,7 +73,9 @@ export class StudioService {
       status: 'generating',
     });
 
-    await inngest.send(studioArtifactRequested.create({ artifactId: artifact.id, memorybookId, userId, kind }));
+    await inngest.send(
+      studioArtifactRequested.create({ artifactId: artifact.id, memorybookId, userId, kind, focus: options?.focus })
+    );
 
     return artifact;
   }

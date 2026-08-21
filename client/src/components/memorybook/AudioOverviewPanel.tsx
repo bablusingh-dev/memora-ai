@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Headphones,
   Play,
@@ -24,6 +24,7 @@ import {
   ScrollText,
   Network,
   Presentation,
+  AlertTriangle,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -32,7 +33,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Slider } from '@/components/ui/slider';
 import { useMemorybookStore } from '@/store/useMemorybookStore';
-import { StudioArtifact, StudioArtifactKind } from '@/types/api';
+import { StudioArtifact, StudioArtifactKind, PodcastPayload } from '@/types/api';
 import { StudioArtifactCard } from '@/components/memorybook/studio/StudioArtifactCard';
 import { FlashcardViewer } from '@/components/memorybook/studio/FlashcardViewer';
 import { QuizViewer } from '@/components/memorybook/studio/QuizViewer';
@@ -150,6 +151,16 @@ const STUDIO_VIEWER_CONFIGS: Record<
     describe: (a) => `${a.payload && 'slides' in a.payload ? a.payload.slides.length + 1 : 0} slides, generated from your sources`,
     render: (a) => (a.payload && 'slides' in a.payload ? <SlideDeckViewer payload={a.payload} /> : null),
   },
+  // Podcast has its own dedicated "Audio" tab (below) rather than the
+  // generic Studio-tab card + shared dialog every other kind uses — this
+  // entry exists only so the Record<StudioArtifactKind, ...> stays
+  // exhaustive; it's never reached since podcast is excluded from
+  // STUDIO_GENERATOR_CONFIGS.
+  podcast: {
+    icon: Headphones,
+    describe: (a) => `${a.payload && 'durationSec' in a.payload ? Math.round(a.payload.durationSec / 60) : 0} min, generated from your sources`,
+    render: () => null,
+  },
 };
 
 // Kinds whose content benefits from a wider dialog (a table or a long-form
@@ -177,11 +188,16 @@ export function AudioOverviewPanel() {
   const [notesSearch, setNotesSearch] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Audio Player Mock State (deep-dive audio overview)
+  // Audio Player (Deep Dive Podcast) — driven by a real <audio> element once
+  // a podcast artifact is ready; see the audio-event wiring effect below.
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
-  const [playbackProgress, setPlaybackProgress] = useState(25);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [duration, setDuration] = useState(0);
   const [playbackSpeed, setPlaybackSpeed] = useState(1.0);
   const speeds = [1.0, 1.25, 1.5, 2.0];
+  const [isPodcastDialogOpen, setPodcastDialogOpen] = useState(false);
+  const [podcastFocus, setPodcastFocus] = useState('');
 
   // Studio artifact generation/viewing state
   const [selectedArtifact, setSelectedArtifact] = useState<StudioArtifact | null>(null);
@@ -200,6 +216,101 @@ export function AudioOverviewPanel() {
     } finally {
       setRequestingKind(null);
     }
+  };
+
+  const podcastArtifact = studioArtifacts.find((a) => a.kind === 'podcast');
+  const podcastPayload: PodcastPayload | null =
+    podcastArtifact?.status === 'ready' && podcastArtifact.payload && 'audioUrl' in podcastArtifact.payload
+      ? podcastArtifact.payload
+      : null;
+  const podcastGenerating = isKindGenerating('podcast');
+
+  const handleGeneratePodcast = async () => {
+    if (!activeMemorybook || podcastGenerating) return;
+    setRequestingKind('podcast');
+    try {
+      await generateStudioArtifact('podcast', { focus: podcastFocus.trim() || undefined });
+      setPodcastDialogOpen(false);
+      setPodcastFocus('');
+    } catch (e) {
+      // error surfaced via store's error state
+    } finally {
+      setRequestingKind(null);
+    }
+  };
+
+  // Wire the real <audio> element's playback state once a podcast is ready —
+  // re-runs whenever the audio source changes (new podcast generated).
+  useEffect(() => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    const onTimeUpdate = () => setCurrentTime(audio.currentTime);
+    const onLoadedMetadata = () => setDuration(audio.duration || 0);
+    const onPlay = () => setIsPlaying(true);
+    const onPause = () => setIsPlaying(false);
+    const onEnded = () => setIsPlaying(false);
+    audio.addEventListener('timeupdate', onTimeUpdate);
+    audio.addEventListener('loadedmetadata', onLoadedMetadata);
+    audio.addEventListener('play', onPlay);
+    audio.addEventListener('pause', onPause);
+    audio.addEventListener('ended', onEnded);
+    return () => {
+      audio.removeEventListener('timeupdate', onTimeUpdate);
+      audio.removeEventListener('loadedmetadata', onLoadedMetadata);
+      audio.removeEventListener('play', onPlay);
+      audio.removeEventListener('pause', onPause);
+      audio.removeEventListener('ended', onEnded);
+    };
+  }, [podcastPayload?.audioUrl]);
+
+  const togglePodcastPlayback = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    if (audio.paused) {
+      audio.play();
+    } else {
+      audio.pause();
+    }
+  };
+
+  const restartPodcast = () => {
+    const audio = audioRef.current;
+    if (!audio) return;
+    audio.currentTime = 0;
+    setCurrentTime(0);
+  };
+
+  const cyclePodcastSpeed = () => {
+    const nextSpeed = speeds[(speeds.indexOf(playbackSpeed) + 1) % speeds.length];
+    setPlaybackSpeed(nextSpeed);
+    if (audioRef.current) audioRef.current.playbackRate = nextSpeed;
+  };
+
+  const seekPodcast = (percent: number) => {
+    const audio = audioRef.current;
+    if (!audio || !duration) return;
+    const newTime = (percent / 100) * duration;
+    audio.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
+
+  const formatPlaybackTime = (sec: number) => {
+    if (!Number.isFinite(sec) || sec < 0) return '00:00';
+    const m = Math.floor(sec / 60);
+    const s = Math.floor(sec % 60);
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
+
+  const handleSaveTranscript = () => {
+    if (!podcastPayload) return;
+    const transcriptMd = podcastPayload.turns
+      .map((t) => `- ${t.speaker === 'host_a' ? 'Host A' : 'Host B'}: ${t.text}`)
+      .join('\n');
+    generateAIArtifact(
+      'ai_summary',
+      'Podcast Transcript',
+      `# Podcast Transcript: ${podcastArtifact?.title || activeMemorybook?.title || 'Workspace'}\n\n${transcriptMd}`
+    );
   };
 
   const handleCreateNote = async (e: React.FormEvent) => {
@@ -297,92 +408,143 @@ export function AudioOverviewPanel() {
               <Badge variant="secondary" className="bg-primary/10 text-primary text-[10px] font-semibold">
                 AI Deep Dive Podcast
               </Badge>
-              <span className="text-[10px] text-muted-foreground font-mono">12 min summary</span>
+              {podcastPayload && (
+                <span className="text-[10px] text-muted-foreground font-mono">
+                  {Math.round(podcastPayload.durationSec / 60)} min summary
+                </span>
+              )}
             </div>
 
             <div>
-              <h3 className="font-bold text-xs text-foreground">Audio Overview</h3>
+              <h3 className="font-bold text-xs text-foreground">
+                {podcastArtifact?.status === 'ready' ? podcastArtifact.title : 'Audio Overview'}
+              </h3>
               <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
                 Two AI hosts discuss key findings and insights from your workspace sources.
               </p>
             </div>
 
-            {/* Static Visualizer Bar (No Animations) */}
-            <div className="h-10 bg-muted/40 dark:bg-zinc-800/60 rounded-2xl p-2 flex items-center justify-between px-3">
-              {[40, 65, 30, 80, 95, 50, 70, 35, 85, 60, 90, 45, 75, 55, 80, 40, 60, 85, 30, 70].map(
-                (h, idx) => (
-                  <div
-                    key={idx}
-                    className={`w-1 rounded-full transition-colors ${
-                      isPlaying && idx < 8 ? 'bg-primary' : 'bg-muted-foreground/30'
-                    }`}
-                    style={{ height: `${h}%` }}
-                  />
-                )
-              )}
-            </div>
-
-            {/* Scrub Slider */}
-            <div className="space-y-1">
-              <Slider
-                value={[playbackProgress]}
-                onValueChange={(val) => setPlaybackProgress(val[0])}
-                max={100}
-                step={1}
-                className="w-full cursor-pointer"
-              />
-              <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
-                <span>03:00</span>
-                <span>12:00</span>
-              </div>
-            </div>
-
-            {/* Player Controls */}
-            <div className="flex items-center justify-between pt-1">
-              <button
-                onClick={() => {
-                  const nextSpeed = speeds[(speeds.indexOf(playbackSpeed) + 1) % speeds.length];
-                  setPlaybackSpeed(nextSpeed);
-                }}
-                className="text-[11px] font-mono font-bold px-2 py-1 rounded-xl bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {playbackSpeed}x
-              </button>
-
-              <div className="flex items-center space-x-2">
+            {podcastArtifact?.status === 'error' ? (
+              // Generation failed — surface the reason and let the user retry.
+              <div className="space-y-3">
+                <div className="flex items-start space-x-2 p-3 rounded-2xl bg-destructive/10 text-destructive">
+                  <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <p className="text-[11px] leading-relaxed">{podcastArtifact.errorMessage || 'Generation failed.'}</p>
+                </div>
                 <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => setPlaybackProgress(0)}
-                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                >
-                  <RotateCcw className="w-3.5 h-3.5" />
-                </Button>
-                <Button
-                  onClick={() => setIsPlaying(!isPlaying)}
                   disabled={!activeMemorybook}
-                  className="h-10 w-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground p-0 flex items-center justify-center shadow-xs"
+                  onClick={() => setPodcastDialogOpen(true)}
+                  className="w-full justify-center space-x-2 bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-9 rounded-2xl border-0 font-semibold shadow-xs"
                 >
-                  {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                  <Headphones className="w-3.5 h-3.5" />
+                  <span>Try Again</span>
                 </Button>
               </div>
+            ) : podcastGenerating ? (
+              // Generation in progress — this genuinely takes longer than the
+              // other Studio kinds (script + many sequential TTS calls), so
+              // set that expectation instead of looking stuck.
+              <div className="flex flex-col items-center justify-center py-6 space-y-2 text-center">
+                <Loader2 className="w-5 h-5 text-primary animate-spin" />
+                <p className="text-[11px] text-muted-foreground leading-relaxed">
+                  Writing the script and recording both hosts — this can take a minute or two…
+                </p>
+              </div>
+            ) : podcastPayload ? (
+              <>
+                {/* Real audio element — hidden, driven by the controls below */}
+                <audio ref={audioRef} src={podcastPayload.audioUrl} preload="metadata" className="hidden" />
 
+                {/* Visualizer Bar (reacts to real playback state) */}
+                <div className="h-10 bg-muted/40 dark:bg-zinc-800/60 rounded-2xl p-2 flex items-center justify-between px-3">
+                  {[40, 65, 30, 80, 95, 50, 70, 35, 85, 60, 90, 45, 75, 55, 80, 40, 60, 85, 30, 70].map(
+                    (h, idx) => (
+                      <div
+                        key={idx}
+                        className={`w-1 rounded-full transition-colors ${
+                          isPlaying && idx < 8 ? 'bg-primary' : 'bg-muted-foreground/30'
+                        }`}
+                        style={{ height: `${h}%` }}
+                      />
+                    )
+                  )}
+                </div>
+
+                {/* Scrub Slider — bound to real currentTime/duration */}
+                <div className="space-y-1">
+                  <Slider
+                    value={[duration ? (currentTime / duration) * 100 : 0]}
+                    onValueChange={(val) => seekPodcast(val[0])}
+                    max={100}
+                    step={1}
+                    className="w-full cursor-pointer"
+                  />
+                  <div className="flex justify-between text-[10px] text-muted-foreground font-mono">
+                    <span>{formatPlaybackTime(currentTime)}</span>
+                    <span>{formatPlaybackTime(duration)}</span>
+                  </div>
+                </div>
+
+                {/* Player Controls */}
+                <div className="flex items-center justify-between pt-1">
+                  <button
+                    onClick={cyclePodcastSpeed}
+                    className="text-[11px] font-mono font-bold px-2 py-1 rounded-xl bg-muted/50 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {playbackSpeed}x
+                  </button>
+
+                  <div className="flex items-center space-x-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={restartPodcast}
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                    >
+                      <RotateCcw className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      onClick={togglePodcastPlayback}
+                      disabled={!activeMemorybook}
+                      className="h-10 w-10 rounded-full bg-primary hover:bg-primary/90 text-primary-foreground p-0 flex items-center justify-center shadow-xs"
+                    >
+                      {isPlaying ? <Pause className="w-4 h-4" /> : <Play className="w-4 h-4 ml-0.5" />}
+                    </Button>
+                  </div>
+
+                  <div className="flex items-center">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleSaveTranscript}
+                      className="h-8 w-8 text-muted-foreground hover:text-foreground"
+                      title="Save Transcript to Notes"
+                    >
+                      <Download className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => podcastArtifact && deleteStudioArtifact(podcastArtifact.id)}
+                      className="h-8 w-8 text-muted-foreground hover:text-destructive"
+                      title="Delete Podcast"
+                    >
+                      <Trash2 className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              // No podcast generated yet
               <Button
-                variant="ghost"
-                size="icon"
-                onClick={() =>
-                  generateAIArtifact(
-                    'ai_summary',
-                    'Audio Overview Transcript',
-                    `# Audio Overview Transcript for ${activeMemorybook?.title || 'Workspace'}\n\n- Host A: Welcome back to Memorybook Studio.\n- Host B: Today we are examining the core themes across your uploaded sources.\n- Key takeaways: your workspace is grounded in exact, citable evidence from what you've added.`
-                  )
-                }
-                className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                title="Save Audio Transcript to Notes"
+                disabled={!activeMemorybook}
+                onClick={() => setPodcastDialogOpen(true)}
+                className="w-full justify-center space-x-2 bg-primary hover:bg-primary/90 text-primary-foreground text-xs h-9 rounded-2xl border-0 font-semibold shadow-xs"
               >
-                <Download className="w-3.5 h-3.5" />
+                <Headphones className="w-3.5 h-3.5" />
+                <span>Generate Deep Dive Podcast</span>
               </Button>
-            </div>
+            )}
           </Card>
 
           {/* Quick AI Summary Note Generator */}
@@ -647,6 +809,44 @@ export function AudioOverviewPanel() {
               Save Note
             </Button>
           </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Generate Podcast Dialog */}
+      <Dialog open={isPodcastDialogOpen} onOpenChange={setPodcastDialogOpen}>
+        <DialogContent className="sm:max-w-[450px] border-0 bg-slate-100 dark:bg-zinc-900 ring-1 ring-black/5 dark:ring-white/10 shadow-2xl dark:shadow-[0_25px_50px_-12px_rgba(0,0,0,0.95)] text-foreground rounded-3xl p-5 space-y-3">
+          <DialogHeader className="bg-white dark:bg-zinc-950 p-4 rounded-2xl shadow-2xs">
+            <DialogTitle className="flex items-center gap-2 text-sm font-bold text-foreground">
+              <Headphones className="w-4 h-4 text-primary" /> Generate Deep Dive Podcast
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground mt-0.5">
+              Two AI hosts will discuss your sources in a ~6-8 minute conversation.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="bg-white dark:bg-zinc-950 p-4 rounded-2xl shadow-2xs space-y-3.5">
+            <div className="space-y-1">
+              <label className="text-xs font-semibold text-foreground">Focus on... (optional)</label>
+              <textarea
+                rows={3}
+                placeholder="e.g. Focus on the financial risks and mitigation strategies"
+                value={podcastFocus}
+                onChange={(e) => setPodcastFocus(e.target.value)}
+                disabled={podcastGenerating}
+                maxLength={300}
+                className="w-full rounded-2xl bg-slate-100 dark:bg-zinc-800/90 px-3.5 py-2.5 text-xs text-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-primary border-0 shadow-inner"
+              />
+              <p className="text-[10px] text-muted-foreground">Leave blank for a general overview of everything in this workspace.</p>
+            </div>
+            <Button
+              onClick={handleGeneratePodcast}
+              disabled={!activeMemorybook || podcastGenerating}
+              className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-semibold h-10 rounded-2xl border-0 shadow-xs gap-2"
+            >
+              {podcastGenerating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Headphones className="w-3.5 h-3.5" />}
+              <span>Generate</span>
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
