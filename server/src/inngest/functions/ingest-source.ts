@@ -54,34 +54,40 @@ async function chunkPersistAndFanOut(
 
   await step.run('mark-embedding', () => sourceRepo.updateSource(sourceId, { stage: 'embedding' }));
 
-  // Soft-fail: an embeddings-API hiccup shouldn't block the whole source
-  // from becoming ready — chunks stay fully searchable via BM25 immediately,
-  // and the embedding-backfill Inngest cron (embedding-backfill.ts) picks up
-  // anything left with a null embedding.
-  const embeddings = await step.run('generate-embeddings', async () => {
+  // Embedding generation and persistence are one step, not two. Inngest
+  // memoizes every step's return value as that step's output, and enforces
+  // a max size on it — a raw number[][] of 1536-dim vectors for a
+  // large/chunky source blows straight past that limit ("output_too_large"),
+  // which fails the whole run after burning through all retries. Keeping the
+  // embeddings array inside this step's closure (never returned) means only
+  // the small chunkIds array crosses the step boundary, regardless of how
+  // many chunks the source has.
+  //
+  // Soft-fail on the embedding call itself: an embeddings-API hiccup
+  // shouldn't block the whole source from becoming ready — chunks stay fully
+  // searchable via BM25 immediately, and the embedding-backfill Inngest cron
+  // (embedding-backfill.ts) picks up anything left with a null embedding.
+  const chunkIds: string[] = await step.run('embed-and-persist-chunks', async () => {
+    let embeddings: number[][] = [];
     try {
-      return await embeddingService.embedMany(dbChunks.map((c) => c.retrievalContent || c.content));
+      embeddings = await embeddingService.embedMany(dbChunks.map((c) => c.retrievalContent || c.content));
     } catch (err) {
       logger.warn(
         { err, sourceId },
         '[IngestSource] Embedding generation failed — chunks will be BM25-only searchable until embedding-backfill retries them'
       );
-      return [];
     }
-  });
 
-  const chunksWithEmbeddings = dbChunks.map((c, i) => ({
-    ...c,
-    embedding: embeddings[i] ?? null,
-  }));
+    const chunksWithEmbeddings = dbChunks.map((c, i) => ({
+      ...c,
+      embedding: embeddings[i] ?? null,
+    }));
 
-  const chunkIds: string[] = await step.run('persist-chunks', async () => {
     // Idempotent against a full function-level retry (exhausted step
-    // retries -> Inngest starts a fresh run): clear anything a previous
-    // attempt already committed before re-inserting, so retries never
-    // duplicate chunks. Inngest memoizes *this* step's own result within a
-    // single run, so this delete+insert only ever actually executes once
-    // per successful run — the safeguard is for the retry-after-failure case.
+    // retries -> Inngest starts a fresh run), and against this step itself
+    // retrying (e.g. embedding succeeds but the DB insert fails): clear
+    // anything a previous attempt already committed before re-inserting, so
+    // retries never duplicate chunks.
     await sourceRepo.deleteChunksBySourceId(sourceId);
     return sourceRepo.insertChunksReturningIds(chunksWithEmbeddings);
   });

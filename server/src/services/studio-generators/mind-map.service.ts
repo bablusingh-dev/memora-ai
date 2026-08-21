@@ -21,7 +21,10 @@ const MindMapSchema = z
         z.object({
           source: z.string().min(1).describe('id of the source (parent/broader) node.'),
           target: z.string().min(1).describe('id of the target (child/narrower) node.'),
-          label: z.string().optional().describe('Optional short label describing the relationship.'),
+          label: z
+            .string()
+            .nullable()
+            .describe('Short label describing the relationship, or null if there is none.'),
         })
       )
       .min(3)

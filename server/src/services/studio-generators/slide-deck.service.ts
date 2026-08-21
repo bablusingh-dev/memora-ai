@@ -15,7 +15,10 @@ const SlideDeckSchema = z.object({
           .min(1)
           .max(6)
           .describe('1 to 6 short bullet points for this slide — phrases, not paragraphs.'),
-        speakerNotes: z.string().optional().describe('Optional brief talking points for presenting this slide aloud.'),
+        speakerNotes: z
+          .string()
+          .nullable()
+          .describe('Brief talking points for presenting this slide aloud, or null if there are none.'),
       })
     )
     .min(3)

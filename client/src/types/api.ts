@@ -82,13 +82,13 @@ export interface ReportPayload {
 
 export interface MindMapPayload {
   nodes: { id: string; label: string }[];
-  edges: { source: string; target: string; label?: string }[];
+  edges: { source: string; target: string; label?: string | null }[];
   rootId: string;
 }
 
 export interface SlideDeckPayload {
   deckTitle: string;
-  slides: { title: string; bullets: string[]; speakerNotes?: string }[];
+  slides: { title: string; bullets: string[]; speakerNotes?: string | null }[];
 }
 
 export interface StudioArtifact {
